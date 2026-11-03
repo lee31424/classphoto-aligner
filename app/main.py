@@ -119,15 +119,22 @@ SHORTCUT_SCOPES = {
     "redo": "global",
     "export": "global",
 }
+THEME_MODES = ("light", "dark", "black")
+THEME_LABELS = {"light": "浅色", "dark": "深色", "black": "纯黑"}
 
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.settings = QSettings("PhotoRosterTool", "PhotoRosterTool")
-        self._dark_theme = bool(
-            self.settings.value("dark_theme", False, type=bool)
-        )
+        saved_theme = str(self.settings.value("theme_mode", "") or "")
+        if saved_theme not in THEME_MODES:
+            saved_theme = (
+                "dark"
+                if bool(self.settings.value("dark_theme", False, type=bool))
+                else "light"
+            )
+        self._theme_mode = saved_theme
         self.source_dir: Path | None = None
         self.output_dir: Path | None = None
         self.last_output_dir: Path | None = None
@@ -257,10 +264,10 @@ class MainWindow(QMainWindow):
         toolbar_layout.addWidget(self.resume_btn)
         toolbar_layout.addWidget(self.undo_export_btn)
         toolbar_layout.addSpacing(8)
-        self.theme_btn = QPushButton("深色")
+        self.theme_btn = QPushButton("浅色")
         self.theme_btn.setObjectName("themeToggle")
         self.theme_btn.setFixedWidth(72)
-        self.theme_btn.setToolTip("切换深色 / 浅色主题")
+        self.theme_btn.setToolTip("当前：浅色，点击切换到深色")
         self.theme_btn.clicked.connect(self._toggle_theme)
         toolbar_layout.addWidget(self.theme_btn)
         root_layout.addWidget(toolbar)
@@ -669,11 +676,13 @@ class MainWindow(QMainWindow):
             self.move_roster_entry_to_end(index.row())
 
     def _toggle_theme(self):
-        self._dark_theme = not self._dark_theme
-        self.settings.setValue("dark_theme", self._dark_theme)
+        index = THEME_MODES.index(self._theme_mode)
+        self._theme_mode = THEME_MODES[(index + 1) % len(THEME_MODES)]
+        self.settings.setValue("theme_mode", self._theme_mode)
+        self.settings.setValue("dark_theme", self._theme_mode != "light")
         self._apply_style()
         self.status_label.setText(
-            "已切换到深色主题" if self._dark_theme else "已切换到浅色主题"
+            f"已切换到{THEME_LABELS[self._theme_mode]}主题"
         )
 
     def _theme_palette(self):
@@ -708,7 +717,29 @@ class MainWindow(QMainWindow):
         return palette
 
     def _theme_colors(self) -> dict[str, str]:
-        if self._dark_theme:
+        if self._theme_mode == "black":
+            return {
+                "window": "#000000",
+                "panel": "#050505",
+                "view": "#000000",
+                "border": "#202020",
+                "text": "#f2f2f2",
+                "muted": "#9a9a9a",
+                "button": "#111111",
+                "button_hover": "#1c1c1c",
+                "button_disabled": "#080808",
+                "disabled_text": "#5a5a5a",
+                "input": "#050505",
+                "primary": "#3b82f6",
+                "primary_hover": "#2f6fd0",
+                "primary_disabled": "#1d3552",
+                "selected_bg": "#0a2540",
+                "selected_text": "#cfe6ff",
+                "exported_bg": "#061f14",
+                "exported_text": "#78e0a8",
+                "scroll": "#333333",
+            }
+        if self._theme_mode == "dark":
             return {
                 "window": "#0f151d",
                 "panel": "#18222d",
@@ -851,9 +882,9 @@ class MainWindow(QMainWindow):
         if app is not None:
             app.setPalette(self._theme_palette())
         if hasattr(self, "photo_delegate"):
-            self.photo_delegate.set_dark(self._dark_theme)
+            self.photo_delegate.set_theme(self._theme_mode)
         if hasattr(self, "roster_delegate"):
-            self.roster_delegate.set_dark(self._dark_theme)
+            self.roster_delegate.set_theme(self._theme_mode)
         for view in (
             getattr(self, "photo_view", None),
             getattr(self, "roster_view", None),
@@ -861,9 +892,12 @@ class MainWindow(QMainWindow):
             if view is not None:
                 view.viewport().update()
         if hasattr(self, "theme_btn"):
-            self.theme_btn.setText("浅色" if self._dark_theme else "深色")
+            index = THEME_MODES.index(self._theme_mode)
+            next_mode = THEME_MODES[(index + 1) % len(THEME_MODES)]
+            self.theme_btn.setText(THEME_LABELS[self._theme_mode])
             self.theme_btn.setToolTip(
-                "切换到浅色主题" if self._dark_theme else "切换到深色主题"
+                f"当前：{THEME_LABELS[self._theme_mode]}，"
+                f"点击切换到{THEME_LABELS[next_mode]}"
             )
 
     # -------------------------------------------------------- window state

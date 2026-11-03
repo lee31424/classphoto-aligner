@@ -16,6 +16,7 @@ class PhotoDelegate(QStyledItemDelegate):
         super().__init__(parent)
         self.photo_model = photo_model
         self.thumbs = thumbs
+        self.theme_mode = "light"
         self.dark = False
 
     def sizeHint(self, option, index: QModelIndex) -> QSize:  # noqa: N802
@@ -24,8 +25,14 @@ class PhotoDelegate(QStyledItemDelegate):
     def set_thumbs(self, thumbs):
         self.thumbs = thumbs
 
+    def set_theme(self, mode: str):
+        if mode not in ("light", "dark", "black"):
+            mode = "light"
+        self.theme_mode = mode
+        self.dark = mode != "light"
+
     def set_dark(self, dark: bool):
-        self.dark = bool(dark)
+        self.set_theme("dark" if dark else "light")
 
     def paint(self, painter: QPainter, option, index: QModelIndex):
         photo = index.data(PHOTO_ROLE)
@@ -39,7 +46,17 @@ class PhotoDelegate(QStyledItemDelegate):
         outer = option.rect.adjusted(3, 3, -3, -3)
         selected = bool(option.state & QStyle.StateFlag.State_Selected)
         hovered = bool(option.state & QStyle.StateFlag.State_MouseOver)
-        if self.dark:
+        if self.theme_mode == "black":
+            if selected:
+                background = QColor("#0a2540")
+                border = QColor("#3b82f6")
+            elif hovered:
+                background = QColor("#141414")
+                border = QColor("#333333")
+            else:
+                background = QColor("#000000")
+                border = QColor("#202020")
+        elif self.dark:
             if selected:
                 background = QColor("#17395f")
                 border = QColor("#3b82f6")
@@ -86,14 +103,19 @@ class PhotoDelegate(QStyledItemDelegate):
             y = thumb_rect.top() + (thumb_rect.height() - scaled.height()) // 2
             painter.drawPixmap(x, y, scaled)
         else:
-            painter.setBrush(
-                QColor("#24313f") if self.dark else QColor("#eef1f5")
-            )
+            if self.theme_mode == "black":
+                placeholder_bg = QColor("#0d0d0d")
+                placeholder_fg = QColor("#777777")
+            elif self.dark:
+                placeholder_bg = QColor("#24313f")
+                placeholder_fg = QColor("#71849a")
+            else:
+                placeholder_bg = QColor("#eef1f5")
+                placeholder_fg = QColor("#9aa4b2")
+            painter.setBrush(placeholder_bg)
             painter.setPen(Qt.PenStyle.NoPen)
             painter.drawRoundedRect(QRectF(thumb_rect), 5, 5)
-            painter.setPen(
-                QColor("#71849a") if self.dark else QColor("#9aa4b2")
-            )
+            painter.setPen(placeholder_fg)
             placeholder_font = QFont(option.font)
             placeholder_font.setPointSizeF(8.5)
             painter.setFont(placeholder_font)
@@ -106,7 +128,12 @@ class PhotoDelegate(QStyledItemDelegate):
         badge = QRect(outer.left() + 8, outer.top() + 8, 40, 22)
         display_seq = index.row() + 1
         is_extra = display_seq > self.photo_model.counterpart_count
-        badge_color = QColor("#c0392b") if is_extra else QColor("#34495e")
+        if is_extra:
+            badge_color = QColor("#c0392b")
+        elif self.theme_mode == "black":
+            badge_color = QColor("#111111")
+        else:
+            badge_color = QColor("#34495e")
         painter.setBrush(badge_color)
         painter.setPen(Qt.PenStyle.NoPen)
         painter.drawRoundedRect(QRectF(badge), 5, 5)
@@ -124,9 +151,13 @@ class PhotoDelegate(QStyledItemDelegate):
                 outer.width() - 16,
                 16,
             )
-            painter.setPen(
-                QColor("#8fa1b5") if self.dark else QColor("#7a8798")
-            )
+            if self.theme_mode == "black":
+                group_color = QColor("#999999")
+            elif self.dark:
+                group_color = QColor("#8fa1b5")
+            else:
+                group_color = QColor("#7a8798")
+            painter.setPen(group_color)
             group_font = QFont(option.font)
             group_font.setPointSizeF(7.4)
             painter.setFont(group_font)
@@ -146,9 +177,13 @@ class PhotoDelegate(QStyledItemDelegate):
             outer.width() - 16,
             22,
         )
-        painter.setPen(
-            QColor("#dce6f0") if self.dark else QColor("#2f3b4a")
-        )
+        if self.theme_mode == "black":
+            name_color = QColor("#f2f2f2")
+        elif self.dark:
+            name_color = QColor("#dce6f0")
+        else:
+            name_color = QColor("#2f3b4a")
+        painter.setPen(name_color)
         name_font = QFont(option.font)
         name_font.setPointSizeF(8.5)
         painter.setFont(name_font)
@@ -172,10 +207,17 @@ class RosterDelegate(QStyledItemDelegate):
         super().__init__(parent)
         self.roster_model = roster_model
         self.cell_width = 100
+        self.theme_mode = "light"
         self.dark = False
 
+    def set_theme(self, mode: str):
+        if mode not in ("light", "dark", "black"):
+            mode = "light"
+        self.theme_mode = mode
+        self.dark = mode != "light"
+
     def set_dark(self, dark: bool):
-        self.dark = bool(dark)
+        self.set_theme("dark" if dark else "light")
 
     def set_cell_width(self, width: int):
         self.cell_width = max(80, int(width))
@@ -193,7 +235,17 @@ class RosterDelegate(QStyledItemDelegate):
         rect = option.rect.adjusted(2, 2, -2, -2)
         selected = bool(option.state & QStyle.StateFlag.State_Selected)
         hovered = bool(option.state & QStyle.StateFlag.State_MouseOver)
-        if self.dark:
+        if self.theme_mode == "black":
+            if selected:
+                painter.setBrush(QColor("#0a2540"))
+                painter.setPen(QPen(QColor("#3b82f6"), 2))
+            elif hovered:
+                painter.setBrush(QColor("#141414"))
+                painter.setPen(QPen(QColor("#333333"), 1))
+            else:
+                painter.setBrush(QColor("#000000"))
+                painter.setPen(QPen(QColor("#202020"), 1))
+        elif self.dark:
             if selected:
                 painter.setBrush(QColor("#17395f"))
                 painter.setPen(QPen(QColor("#3b82f6"), 2))
@@ -216,7 +268,12 @@ class RosterDelegate(QStyledItemDelegate):
 
         is_extra = index.row() + 1 > self.roster_model.counterpart_count
         is_duplicate = entry.student_no in self.roster_model.duplicate_ids
-        normal_number = "#8fa1b5" if self.dark else "#5b6b7f"
+        if self.theme_mode == "black":
+            normal_number = "#999999"
+        elif self.dark:
+            normal_number = "#8fa1b5"
+        else:
+            normal_number = "#5b6b7f"
         number_color = (
             QColor("#c0392b")
             if (is_extra or is_duplicate)
@@ -244,7 +301,13 @@ class RosterDelegate(QStyledItemDelegate):
         name_font.setPointSizeF(9.5)
         name_font.setBold(True)
         painter.setFont(name_font)
-        painter.setPen(QColor("#e6edf5" if self.dark else "#223044"))
+        if self.theme_mode == "black":
+            name_color = QColor("#f2f2f2")
+        elif self.dark:
+            name_color = QColor("#e6edf5")
+        else:
+            name_color = QColor("#223044")
+        painter.setPen(name_color)
         metrics = QFontMetrics(name_font)
         name_text = metrics.elidedText(
             entry.name or "（无姓名）",
@@ -260,11 +323,15 @@ class RosterDelegate(QStyledItemDelegate):
         id_font = QFont(option.font)
         id_font.setPointSizeF(8.3)
         painter.setFont(id_font)
-        painter.setPen(
-            QColor("#c0392b")
-            if is_duplicate
-            else QColor("#9fb0c3" if self.dark else "#6b7788")
-        )
+        if is_duplicate:
+            id_color = QColor("#c0392b")
+        elif self.theme_mode == "black":
+            id_color = QColor("#999999")
+        elif self.dark:
+            id_color = QColor("#9fb0c3")
+        else:
+            id_color = QColor("#6b7788")
+        painter.setPen(id_color)
         metrics = QFontMetrics(id_font)
         id_text_value = entry.student_no or "（空学号）"
         group_text = " / ".join(
@@ -283,7 +350,14 @@ class RosterDelegate(QStyledItemDelegate):
 
         if gender:
             gender_rect = QRect(rect.right() - 58, rect.top() + 7, 28, 18)
-            if self.dark:
+            if self.theme_mode == "black":
+                gender_bg = (
+                    QColor("#0a2540") if gender == "男" else QColor("#2a0e1a")
+                )
+                gender_fg = (
+                    QColor("#8fc2ff") if gender == "男" else QColor("#ff9fc4")
+                )
+            elif self.dark:
                 gender_bg = (
                     QColor("#1e3a5f") if gender == "男" else QColor("#3a1f32")
                 )
@@ -310,7 +384,13 @@ class RosterDelegate(QStyledItemDelegate):
             )
 
         handle_rect = QRect(rect.right() - 24, rect.top() + 10, 18, 26)
-        painter.setPen(QColor("#6f8298" if self.dark else "#b0bac7"))
+        if self.theme_mode == "black":
+            handle_color = QColor("#666666")
+        elif self.dark:
+            handle_color = QColor("#6f8298")
+        else:
+            handle_color = QColor("#b0bac7")
+        painter.setPen(handle_color)
         handle_font = QFont(option.font)
         handle_font.setPointSizeF(13)
         painter.setFont(handle_font)

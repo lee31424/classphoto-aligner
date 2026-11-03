@@ -386,16 +386,26 @@ def test_ui(photos, entries):
     assert window._shortcut_objects["roster_end"].key().toString() == "End"
     assert window.export_action.shortcut().toString() == "Ctrl+E"
 
-    window._dark_theme = True
+    window._theme_mode = "dark"
     window._apply_style()
     assert window.photo_delegate.dark
     assert window.roster_delegate.dark
-    assert window.theme_btn.text() == "浅色"
+    assert window.photo_delegate.theme_mode == "dark"
+    assert window.theme_btn.text() == "深色"
     assert "#0f151d" in window.styleSheet()
-    window._dark_theme = False
+
+    window._theme_mode = "black"
+    window._apply_style()
+    assert window.photo_delegate.dark
+    assert window.photo_delegate.theme_mode == "black"
+    assert window.theme_btn.text() == "纯黑"
+    assert "#000000" in window.styleSheet()
+
+    window._theme_mode = "light"
     window._apply_style()
     assert not window.photo_delegate.dark
-    assert window.theme_btn.text() == "深色"
+    assert window.photo_delegate.theme_mode == "light"
+    assert window.theme_btn.text() == "浅色"
 
     window.resize(1600, 900)
     app.processEvents()
