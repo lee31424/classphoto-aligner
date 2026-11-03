@@ -10,8 +10,7 @@ from pathlib import Path
 from openpyxl import Workbook
 from PySide6.QtCore import QEventLoop, QItemSelectionModel, QSize, QTimer
 from PySide6.QtGui import QColor, QImage, QPainter
-from PySide6.QtWidgets import QApplication, QMessageBox, QPushButton
-from unittest.mock import patch
+from PySide6.QtWidgets import QApplication, QPushButton
 
 APP_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(APP_DIR))
@@ -241,10 +240,7 @@ def test_class_columns_and_filter():
         "2023003",
     ]
     window.undo()
-    with patch.object(
-        QMessageBox, "question", return_value=QMessageBox.StandardButton.Yes
-    ):
-        window.delete_photo_at(0)
+    window.delete_photo_at(0)
     assert window.photo_model.rowCount() == 1
     window.undo()
     assert window.photo_model.rowCount() == 2

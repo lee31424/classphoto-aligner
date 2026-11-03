@@ -1285,7 +1285,7 @@ class MainWindow(QMainWindow):
             return
         menu = QMenu(self)
         delete_action = menu.addAction("删除照片（仅从队列移除）")
-        delete_action.setToolTip("不会删除磁盘上的源照片")
+        delete_action.setToolTip("立即从队列移除，不删除源文件；可按 Ctrl+Z 撤销")
         chosen = menu.exec(self.photo_view.viewport().mapToGlobal(position))
         if chosen == delete_action:
             self.delete_photo_at(index.row())
@@ -1295,17 +1295,6 @@ class MainWindow(QMainWindow):
             return
         photo = self.photo_model.photo_at(row)
         if photo is None:
-            return
-        answer = QMessageBox.question(
-            self,
-            "删除照片",
-            f"从当前照片队列中移除这张照片？\n\n{photo.name}\n{photo.path}\n\n"
-            "只从队列移除，不会删除磁盘上的源文件。\n"
-            "删除后可用 Ctrl+Z 撤销。",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No,
-        )
-        if answer != QMessageBox.StandardButton.Yes:
             return
 
         self._push_history()
