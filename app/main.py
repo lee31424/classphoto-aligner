@@ -240,6 +240,9 @@ class MainWindow(QMainWindow):
         self.undo_btn.clicked.connect(self.undo)
         self.redo_btn = QPushButton("重做")
         self.redo_btn.clicked.connect(self.redo)
+        self.clear_btn = QPushButton("清空")
+        self.clear_btn.setToolTip("清空当前导入的照片和名单，不删除源文件")
+        self.clear_btn.clicked.connect(self.clear_all_data)
 
         for button in (
             self.import_photos_btn,
@@ -248,6 +251,7 @@ class MainWindow(QMainWindow):
             self.delete_btn,
             self.undo_btn,
             self.redo_btn,
+            self.clear_btn,
         ):
             toolbar_layout.addWidget(button)
 
@@ -1028,6 +1032,7 @@ class MainWindow(QMainWindow):
         self.redo_btn.setEnabled(bool(self._redo_stack) and not self.exporting)
         self.import_photos_btn.setEnabled(not self.exporting)
         self.import_roster_btn.setEnabled(not self.exporting)
+        self.clear_btn.setEnabled(not self.exporting)
         self.batch_export_btn.setEnabled(
             bool(self._class_filter) and not self.exporting
         )
@@ -1469,6 +1474,49 @@ class MainWindow(QMainWindow):
             if entry.uid == uid:
                 return index
         return -1
+
+    def clear_all_data(self):
+        if self.exporting:
+            return
+        if not self._all_photos and not self._active_entries and not self.excluded:
+            self.status_label.setText("当前没有已导入的照片或名单")
+            return
+        answer = QMessageBox.question(
+            self,
+            "清空导入数据",
+            "清空当前导入的所有照片和名单？\n\n"
+            "只清空程序中的队列，不会删除磁盘照片或 Excel 文件。\n"
+            "清空后撤销/重做历史也会重置。",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+
+        self._stop_thumbnails()
+        self._all_photos = []
+        self._active_entries = []
+        self.excluded = []
+        self._undo_stack.clear()
+        self._redo_stack.clear()
+        self._department_filter = None
+        self._class_filter = None
+        self._pending_batch_key = None
+        self.source_dir = None
+        self.source_label.setText("尚未导入照片")
+        self.source_label.setToolTip("")
+        self.photo_model.set_photos([])
+        self.roster_model.reset_entries([])
+        self._refresh_filter_options()
+        self._apply_filters()
+        self.photo_view.clearSelection()
+        self.roster_view.clearSelection()
+        self.photo_view.scrollToTop()
+        self.roster_view.scrollToTop()
+        self._update_counts()
+        self._update_pair_label()
+        self._log_action("clear_all", "photos=0 roster=0")
+        self.status_label.setText("已清空所有导入的照片和名单")
 
     # --------------------------------------------------------- photo import
     def import_photos(self):
