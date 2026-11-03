@@ -180,7 +180,7 @@ class RosterModel(QAbstractListModel):
                 f"院系：{entry.department or '（空）'}\n"
                 f"班级号：{entry.class_no or '（空）'}\n"
                 f"性别：{entry.gender or '（空）'}\n"
-                f"Excel 行：{entry.source_row}"
+                f"来源：{'手动添加' if entry.source_row <= 0 else f'Excel 第 {entry.source_row} 行'}"
             )
         if role == ROSTER_NO_ROLE:
             return entry.student_no

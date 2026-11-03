@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QKeySequenceEdit,
     QLabel,
+    QLineEdit,
     QListWidget,
     QListWidgetItem,
     QMessageBox,
@@ -279,6 +280,66 @@ class ExcelImportDialog(QDialog):
         self.class_no_col = int(class_no_col) if class_no_col is not None else None
         self.gender_col = int(gender_col) if gender_col is not None else None
         self.has_header = self.header_check.isChecked()
+        self.accept()
+
+
+class AddRosterDialog(QDialog):
+    """手动添加一条名单；学号必填，姓名和性别可空。"""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.student_no = ""
+        self.name = ""
+        self.gender = ""
+        self.setWindowTitle("添加名单学生")
+        self.resize(430, 250)
+        self._build_ui()
+
+    def _build_ui(self):
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(10)
+        form = QFormLayout()
+        form.setHorizontalSpacing(14)
+        form.setVerticalSpacing(10)
+
+        self.id_edit = QLineEdit()
+        self.id_edit.setPlaceholderText("必填，例如 2659A01")
+        form.addRow("学号：", self.id_edit)
+        self.name_edit = QLineEdit()
+        self.name_edit.setPlaceholderText("可空白")
+        form.addRow("姓名：", self.name_edit)
+        self.gender_combo = QComboBox()
+        self.gender_combo.addItem("（不填）", "")
+        self.gender_combo.addItem("男", "男")
+        self.gender_combo.addItem("女", "女")
+        form.addRow("性别：", self.gender_combo)
+        layout.addLayout(form)
+
+        note = QLabel("新学生将直接追加到名单最后一位。")
+        note.setObjectName("muted")
+        layout.addWidget(note)
+        layout.addStretch(1)
+
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok
+            | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.button(QDialogButtonBox.StandardButton.Ok).setText("添加")
+        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText("取消")
+        buttons.accepted.connect(self._accept)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+
+    def _accept(self):
+        student_no = self.id_edit.text().strip()
+        if not student_no:
+            QMessageBox.warning(self, "缺少学号", "学号不能为空。")
+            self.id_edit.setFocus()
+            return
+        self.student_no = student_no
+        self.name = self.name_edit.text().strip()
+        self.gender = str(self.gender_combo.currentData() or "")
         self.accept()
 
 

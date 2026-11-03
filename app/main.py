@@ -48,6 +48,7 @@ from PySide6.QtWidgets import (
 
 from delegates import PhotoDelegate, RosterDelegate
 from dialogs import (
+    AddRosterDialog,
     ExcelImportDialog,
     ExcludedDialog,
     ShortcutSettingsDialog,
@@ -1811,27 +1812,90 @@ class MainWindow(QMainWindow):
         if self.exporting:
             return
         index = self.roster_view.indexAt(position)
-        if not index.isValid():
-            return
-        selection = self.roster_view.selectionModel()
-        if not selection.isSelected(index):
-            self.roster_view.clearSelection()
-            self.roster_view.setCurrentIndex(index)
+        if index.isValid():
+            selection = self.roster_view.selectionModel()
+            if not selection.isSelected(index):
+                self.roster_view.clearSelection()
+                self.roster_view.setCurrentIndex(index)
         menu = QMenu(self)
-        delete_action = menu.addAction("删除未到场")
-        menu.addSeparator()
-        if self._class_filter:
-            end_text = "移到本班末尾"
-        elif self._filter_active():
-            end_text = "移到筛选结果末尾"
-        else:
-            end_text = "移到名单末尾"
-        end_action = menu.addAction(end_text)
+        add_action = menu.addAction("添加学生（学号/姓名/性别）…")
+        delete_action = None
+        end_action = None
+        if index.isValid():
+            menu.addSeparator()
+            delete_action = menu.addAction("删除未到场")
+            menu.addSeparator()
+            if self._class_filter:
+                end_text = "移到本班末尾"
+            elif self._filter_active():
+                end_text = "移到筛选结果末尾"
+            else:
+                end_text = "移到名单末尾"
+            end_action = menu.addAction(end_text)
         chosen = menu.exec(self.roster_view.viewport().mapToGlobal(position))
-        if chosen == delete_action:
+        if chosen == add_action:
+            self.add_roster_student()
+        elif delete_action is not None and chosen == delete_action:
             self.delete_selected_roster()
-        elif chosen == end_action:
+        elif end_action is not None and chosen == end_action:
             self.move_roster_entry_to_end(index.row())
+
+    def add_roster_student(self):
+        if self.exporting:
+            return
+        dialog = AddRosterDialog(self)
+        if dialog.exec() != AddRosterDialog.DialogCode.Accepted:
+            return
+
+        student_no = dialog.student_no.strip()
+        if not student_no:
+            return
+        existing_ids = {
+            entry.student_no for entry in self._active_entries
+        } | {item.entry.student_no for item in self.excluded}
+        if student_no in existing_ids:
+            QMessageBox.warning(
+                self,
+                "学号重复",
+                f"学号 {student_no} 已经在当前名单或已剔除列表中。",
+            )
+            return
+
+        department = self._department_filter or ""
+        class_no = self._class_filter or ""
+        if class_no and not department:
+            department, _major, _class_no = self._selected_class_identity()
+
+        entry = RosterEntry(
+            student_no=student_no,
+            name=dialog.name.strip(),
+            source_row=0,
+            department=department,
+            class_no=class_no,
+            gender=dialog.gender,
+        )
+        self._push_history()
+        self._active_entries.append(entry)
+        if class_no:
+            old_key = self._export_mark_key(department, class_no)
+            if old_key in self._exported_classes:
+                self._exported_classes.discard(old_key)
+                self._save_exported_classes()
+        self._refresh_filter_options()
+        self._apply_filters()
+        for row, value in enumerate(self.roster_model.entries()):
+            if value.uid == entry.uid:
+                index = self.roster_model.index(row, 0)
+                self.roster_view.setCurrentIndex(index)
+                self.roster_view.scrollTo(
+                    index, QAbstractItemView.ScrollHint.PositionAtCenter
+                )
+                break
+        self._log_action(
+            "add_roster",
+            f"id={student_no} dept={department} class={class_no}",
+        )
+        self.status_label.setText(f"已添加学生：{student_no}")
 
     def move_roster_entry_to_end(self, row: int):
         if self.exporting:
