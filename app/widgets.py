@@ -34,17 +34,26 @@ class RosterListView(QListView):
         self.setDragDropOverwriteMode(False)
 
     def _update_columns(self):
-        width = self.viewport().width()
-        if width <= 0:
+        # 用整个控件的宽度判断列数，不用 viewport 宽度：垂直滚动条出现/消失
+        # 会改变 viewport 宽度，用 viewport 判断会在 2/3 列边界反复横跳。
+        total_width = self.width()
+        viewport_width = self.viewport().width()
+        if total_width <= 0 or viewport_width <= 0:
             return
-        # 窗口宽时三列，窄时两列；列宽跟随可用宽度。
-        columns = 3 if width >= 560 else 2
-        cell_width = max(160, (width - 2) // columns)
+
+        # 列数只看控件总宽度；滚动条出现/消失不会改变它。
+        columns = 3 if total_width >= 560 else 2
+
+        cell_width = max(160, (viewport_width - 2) // columns)
+        grid = QSize(cell_width, self.ROW_HEIGHT)
+        changed = columns != self._columns or grid != self.gridSize()
         self._columns = columns
         delegate = self.itemDelegate()
         if hasattr(delegate, "set_cell_width"):
             delegate.set_cell_width(cell_width)
-        self.setGridSize(QSize(cell_width, self.ROW_HEIGHT))
+        if not changed:
+            return
+        self.setGridSize(grid)
         self.scheduleDelayedItemsLayout()
 
     def resizeEvent(self, event):  # noqa: N802
