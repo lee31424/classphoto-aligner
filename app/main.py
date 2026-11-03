@@ -263,14 +263,6 @@ class MainWindow(QMainWindow):
         self.export_path_btn = QPushButton("选择…")
         self.export_path_btn.clicked.connect(self._choose_batch_export_dir)
         export_row.addWidget(self.export_path_btn)
-        self.batch_export_btn = QPushButton("修改并导出本班")
-        self.batch_export_btn.setObjectName("primary")
-        self.batch_export_btn.setToolTip(
-            "先选择一个班级，确认当前照片和名单顺序后，立即导出到 "
-            "导出路径/学院/专业/班级"
-        )
-        self.batch_export_btn.clicked.connect(self.export_selected_class)
-        export_row.addWidget(self.batch_export_btn)
         self.export_path_edit.editingFinished.connect(self._save_batch_export_dir)
         root_layout.addLayout(export_row)
 
@@ -479,7 +471,18 @@ class MainWindow(QMainWindow):
         bottom_layout.addLayout(progress_row)
         self.status_label = QLabel("就绪")
         self.status_label.setStyleSheet("color:#5b6b7f;")
-        bottom_layout.addWidget(self.status_label)
+        status_row = QHBoxLayout()
+        status_row.addWidget(self.status_label, 1)
+        self.batch_export_btn = QPushButton("修改并导出本班")
+        self.batch_export_btn.setObjectName("primary")
+        self.batch_export_btn.setMinimumWidth(150)
+        self.batch_export_btn.setToolTip(
+            "先选择一个班级，确认当前照片和名单顺序后，立即导出到 "
+            "导出路径/学院/专业/班级"
+        )
+        self.batch_export_btn.clicked.connect(self.export_selected_class)
+        status_row.addWidget(self.batch_export_btn)
+        bottom_layout.addLayout(status_row)
         root_layout.addWidget(bottom)
 
         self._create_actions()
