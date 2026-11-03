@@ -313,7 +313,7 @@ class MainWindow(QMainWindow):
         self.class_frames_scroll = QScrollArea()
         self.class_frames_scroll.setObjectName("classFrames")
         self.class_frames_scroll.setWidgetResizable(True)
-        self.class_frames_scroll.setFixedHeight(86)
+        self.class_frames_scroll.setFixedHeight(64)
         self.class_frames_scroll.setFrameShape(QFrame.Shape.NoFrame)
         self.class_frames_scroll.setHorizontalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAsNeeded
@@ -325,8 +325,8 @@ class MainWindow(QMainWindow):
         self.class_frames_widget.setObjectName("classFramesWidget")
         self.class_frames_widget.setAutoFillBackground(False)
         self.class_frames_layout = QHBoxLayout(self.class_frames_widget)
-        self.class_frames_layout.setContentsMargins(4, 2, 4, 2)
-        self.class_frames_layout.setSpacing(7)
+        self.class_frames_layout.setContentsMargins(4, 1, 4, 1)
+        self.class_frames_layout.setSpacing(5)
         self.class_frames_scroll.setWidget(self.class_frames_widget)
         self.class_frames_scroll.setAutoFillBackground(False)
         self.class_frames_scroll.viewport().setAutoFillBackground(False)
@@ -1151,7 +1151,7 @@ class MainWindow(QMainWindow):
             f"{all_label}\n照片 {photo_total} · 名单 {roster_total}"
         )
         all_button.setObjectName("classFrame")
-        all_button.setFixedHeight(50)
+        all_button.setFixedHeight(44)
         all_button.setMinimumWidth(145)
         all_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         all_button.setProperty("selected", not self._class_filter)
@@ -1178,7 +1178,7 @@ class MainWindow(QMainWindow):
                 f"{department or '未填院系'} · {class_no}\n{status_line}"
             )
             button.setObjectName("classFrame")
-            button.setFixedHeight(50)
+            button.setFixedHeight(44)
             button.setMinimumWidth(155)
             button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
             button.setProperty("selected", selected)
