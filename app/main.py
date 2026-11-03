@@ -274,7 +274,7 @@ class MainWindow(QMainWindow):
         export_row.setSpacing(8)
         export_row.addWidget(QLabel("导出路径："))
         self.export_path_edit = QLineEdit(str(self.batch_export_dir))
-        self.export_path_edit.setPlaceholderText("选择导出根目录，下面会按 学院/专业/班级 建文件夹")
+        self.export_path_edit.setPlaceholderText("选择导出根目录，下面会按 学院/班级 建文件夹")
         self.export_path_edit.setClearButtonEnabled(True)
         export_row.addWidget(self.export_path_edit, 1)
         self.export_path_btn = QPushButton("选择…")
@@ -494,7 +494,7 @@ class MainWindow(QMainWindow):
         self.batch_export_btn.setFixedHeight(44)
         self.batch_export_btn.setToolTip(
             "先选择一个班级，确认当前照片和名单顺序后，立即导出到 "
-            "导出路径/学院/专业/班级"
+            "导出路径/学院/班级"
         )
         self.batch_export_btn.clicked.connect(self.export_selected_class)
 
@@ -1990,16 +1990,15 @@ class MainWindow(QMainWindow):
         return department, major, class_no
 
     def _selected_class_output_dir(self, base_dir: Path) -> Path:
-        department, major, class_no = self._selected_class_identity()
+        department, _major, class_no = self._selected_class_identity()
         return (
             base_dir
             / sanitize_filename(department)
-            / sanitize_filename(major)
             / sanitize_filename(class_no)
         )
 
     def export_selected_class(self):
-        """修改完当前班级后，按 导出路径/学院/专业/班级 立即导出。"""
+        """修改完当前班级后，按 导出路径/学院/班级 立即导出。"""
         if self.exporting:
             return
         if not self._class_filter:
@@ -2046,7 +2045,7 @@ class MainWindow(QMainWindow):
         self.batch_export_dir = base_dir
         self._save_batch_export_dir()
 
-        department, major, class_no = self._selected_class_identity()
+        department, _major, class_no = self._selected_class_identity()
         target_dir = self._selected_class_output_dir(base_dir)
 
         photos = self.photo_model.photos()
@@ -2068,7 +2067,7 @@ class MainWindow(QMainWindow):
         self._batch_export_mode = True
         self._pending_batch_key = self._export_mark_key(department, class_no)
         self.status_label.setText(
-            f"正在导出 {department} / {major} / {class_no}…"
+            f"正在导出 {department} / {class_no}…"
         )
         self._start_export(preflight.items, target_dir)
 
@@ -2257,7 +2256,15 @@ class MainWindow(QMainWindow):
         self.cancel_btn.setEnabled(True)
         self.status_label.setText("正在导出…")
         run_id = run_id_now()
-        self.worker = ExportWorker(items, self.source_dir, output_dir, run_id, self)
+        log_dir = LOG_DIR / "export_logs" / run_id
+        self.worker = ExportWorker(
+            items,
+            self.source_dir,
+            output_dir,
+            run_id,
+            parent=self,
+            log_dir=log_dir,
+        )
         self.worker.progress.connect(self._on_export_progress)
         self.worker.completed.connect(self._on_export_completed)
         self.worker.finished.connect(self._on_export_finished)
@@ -2355,7 +2362,8 @@ class MainWindow(QMainWindow):
             return
         summary_path = self.last_summary_path
         if summary_path is None or not summary_path.is_file():
-            start_dir = str(OUTPUT_ROOT)
+            log_root = LOG_DIR / "export_logs"
+            start_dir = str(log_root if log_root.is_dir() else OUTPUT_ROOT)
             summary_path_str, _ = QFileDialog.getOpenFileName(
                 self,
                 "选择导出汇总 JSON",
@@ -2422,7 +2430,7 @@ class MainWindow(QMainWindow):
             "关于照片名单对齐工具",
             f"照片名单对齐工具 v{APP_VERSION}\n\n"
             "照片按路径中的学院/班级分块并固定顺序；班级框会同步筛选照片和名单。\n"
-            "选班级调整后可用“修改并导出本班”，按 学院/专业/班级 输出。\n"
+            "选班级调整后可用“修改并导出本班”，按 学院/班级 输出。\n"
             "第 N 张照片 ↔ 当前名单第 N 条，导出时用学号命名。\n\n"
             "源照片只读；导出到新文件夹；支持 CSV 日志和按日志撤销。",
         )

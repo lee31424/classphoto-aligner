@@ -214,7 +214,7 @@ def test_class_columns_and_filter():
     assert window.export_action.isEnabled()
     assert window._selected_class_identity() == ("信息学院", "计算机", "2班")
     assert window._selected_class_output_dir(Path("H:/batch_out")).as_posix() == (
-        "H:/batch_out/信息学院/计算机/2班"
+        "H:/batch_out/信息学院/2班"
     )
     assert window.roster_view.dragEnabled()
 
@@ -292,6 +292,7 @@ def test_models(photos, entries):
 
 def test_export(photos, entries):
     output_dir = TEST_ROOT / "output"
+    log_dir = TEST_ROOT / "export_logs"
     output_dir.mkdir(parents=True)
     preflight = build_export_items(photos, entries, TEST_ROOT / "photos", output_dir)
     assert preflight.ok, preflight.errors
@@ -300,7 +301,12 @@ def test_export(photos, entries):
 
     loop = QEventLoop()
     summary: dict = {}
-    worker = ExportWorker(preflight.items, TEST_ROOT / "photos", output_dir)
+    worker = ExportWorker(
+        preflight.items,
+        TEST_ROOT / "photos",
+        output_dir,
+        log_dir=log_dir,
+    )
     worker.completed.connect(lambda value: summary.update(value))
     worker.finished.connect(loop.quit)
     QTimer.singleShot(15000, loop.quit)
@@ -310,6 +316,9 @@ def test_export(photos, entries):
     assert summary, "导出线程没有返回汇总"
     assert summary["ok_count"] == 12, summary
     assert summary["error_count"] == 0, summary
+    assert not list(output_dir.glob("*.csv"))
+    assert not list(output_dir.glob("*.json"))
+    assert Path(summary["summary_file"]).parent == log_dir
     for photo in photos:
         target = output_dir / f"{entries[photos.index(photo)].student_no}.jpg"
         assert target.is_file(), target
@@ -319,7 +328,12 @@ def test_export(photos, entries):
     # 断点续跑：第二次应全部识别为已存在
     loop2 = QEventLoop()
     summary2: dict = {}
-    worker2 = ExportWorker(preflight.items, TEST_ROOT / "photos", output_dir)
+    worker2 = ExportWorker(
+        preflight.items,
+        TEST_ROOT / "photos",
+        output_dir,
+        log_dir=log_dir,
+    )
     worker2.completed.connect(lambda value: summary2.update(value))
     worker2.finished.connect(loop2.quit)
     QTimer.singleShot(15000, loop2.quit)
@@ -337,6 +351,8 @@ def test_export(photos, entries):
     assert undo_result["deleted"] == 12, undo_result
     assert user_file.is_file()
     assert not list(output_dir.glob("*.jpg"))
+    assert not list(output_dir.glob("undo_*"))
+    assert list(log_dir.glob("undo_*"))
     print("TEST export/resume/undo OK")
 
 

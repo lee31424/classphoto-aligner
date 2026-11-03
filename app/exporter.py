@@ -167,16 +167,42 @@ class ExportWorker(QThread):
         output_dir: Path,
         run_id: str | None = None,
         parent=None,
+        log_dir: Path | None = None,
     ):
         super().__init__(parent)
         self.items = list(items)
         self.source_dir = Path(source_dir)
         self.output_dir = Path(output_dir)
+        self.log_dir = Path(log_dir) if log_dir is not None else self.output_dir
         self.run_id = run_id or run_id_now()
         self._cancel_event = threading.Event()
 
     def cancel(self):
         self._cancel_event.set()
+
+    def _clean_output_folder(self):
+        """把旧版本放在照片目录里的日志移到外部，照片目录只留照片。"""
+        patterns = (
+            "rename_plan_*.csv",
+            "rename_log_*.csv",
+            "rename_summary_*.json",
+            "undo_log_*.csv",
+            "undo_summary_*.json",
+            "*.part",
+        )
+        legacy_dir = self.log_dir / "legacy_output_logs"
+        for pattern in patterns:
+            for path in self.output_dir.glob(pattern):
+                if not path.is_file():
+                    continue
+                try:
+                    legacy_dir.mkdir(parents=True, exist_ok=True)
+                    shutil.move(str(path), str(legacy_dir / path.name))
+                except OSError:
+                    try:
+                        path.unlink()
+                    except OSError:
+                        pass
 
     def _write_plan(self, path: Path):
         with open(path, "w", newline="", encoding="utf-8-sig") as handle:
@@ -201,9 +227,11 @@ class ExportWorker(QThread):
         started_at = datetime.now().isoformat(timespec="seconds")
         start_time = time.time()
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        plan_path = self.output_dir / f"rename_plan_{self.run_id}.csv"
-        log_path = self.output_dir / f"rename_log_{self.run_id}.csv"
-        summary_path = self.output_dir / f"rename_summary_{self.run_id}.json"
+        self.log_dir.mkdir(parents=True, exist_ok=True)
+        self._clean_output_folder()
+        plan_path = self.log_dir / f"rename_plan_{self.run_id}.csv"
+        log_path = self.log_dir / f"rename_log_{self.run_id}.csv"
+        summary_path = self.log_dir / f"rename_summary_{self.run_id}.json"
 
         total = len(self.items)
         ok_count = 0
@@ -374,7 +402,8 @@ def undo_export(summary_path: str | Path) -> dict:
         return {"ok": False, "message": f"输出目录不存在：{output_dir}"}
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    undo_log_path = output_dir / f"undo_log_{timestamp}.csv"
+    # 撤销日志也放到导出日志目录，输出目录始终只保留照片。
+    undo_log_path = log_path.parent / f"undo_log_{timestamp}.csv"
     deleted = 0
     missing = 0
     mismatched = 0
@@ -446,7 +475,7 @@ def undo_export(summary_path: str | Path) -> dict:
         "undo_log": str(undo_log_path) if undo_log_path else "",
         "removed_dir": removed_dir,
     }
-    undo_summary_path = output_dir / f"undo_summary_{timestamp}.json"
+    undo_summary_path = log_path.parent / f"undo_summary_{timestamp}.json"
     try:
         with open(undo_summary_path, "w", encoding="utf-8") as handle:
             json.dump(result, handle, ensure_ascii=False, indent=2)
