@@ -288,7 +288,6 @@ class MainWindow(QMainWindow):
         counts_row.addWidget(self.counts_label)
         counts_row.addSpacing(18)
         counts_row.addWidget(self.validation_label, 1)
-        root_layout.addLayout(counts_row)
 
         export_row = QHBoxLayout()
         export_row.setContentsMargins(4, 0, 4, 0)
@@ -492,6 +491,7 @@ class MainWindow(QMainWindow):
         bottom_layout = QVBoxLayout(bottom)
         bottom_layout.setContentsMargins(6, 2, 6, 2)
         bottom_layout.setSpacing(4)
+        bottom_layout.addLayout(counts_row)
         self.pair_label = QLabel("请先导入照片和名单")
         self.pair_label.setObjectName("pair")
         self.pair_label.setWordWrap(True)
@@ -1036,7 +1036,7 @@ class MainWindow(QMainWindow):
         self.import_roster_btn.setEnabled(not self.exporting)
         self.clear_btn.setEnabled(not self.exporting)
         self.batch_export_btn.setEnabled(
-            bool(self._class_filter) and not self.exporting
+            bool(self._class_filter) and can_export
         )
         self.export_path_edit.setEnabled(not self.exporting)
         self.export_path_btn.setEnabled(not self.exporting)
