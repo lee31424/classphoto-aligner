@@ -236,48 +236,49 @@ class RosterDelegate(QStyledItemDelegate):
         gender = entry.gender if entry.gender in ("男", "女") else ""
         text_left = rect.left() + 50
         text_width = rect.width() - (110 if gender else 78)
-        id_rect = QRect(text_left, rect.top() + 5, text_width, 21)
-        name_rect = QRect(text_left, rect.top() + 24, text_width, 18)
-
-        id_font = QFont(option.font)
-        id_font.setPointSizeF(9.5)
-        id_font.setBold(True)
-        painter.setFont(id_font)
-        painter.setPen(
-            QColor("#c0392b")
-            if is_duplicate
-            else QColor("#e6edf5" if self.dark else "#223044")
-        )
-        metrics = QFontMetrics(id_font)
-        id_text = metrics.elidedText(
-            entry.student_no or "（空学号）",
-            Qt.TextElideMode.ElideRight,
-            id_rect.width(),
-        )
-        painter.drawText(
-            id_rect,
-            Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft,
-            id_text,
-        )
+        # 第一行姓名，第二行学号（附班级/院系）。
+        name_rect = QRect(text_left, rect.top() + 5, text_width, 21)
+        id_rect = QRect(text_left, rect.top() + 24, text_width, 18)
 
         name_font = QFont(option.font)
-        name_font.setPointSizeF(8.3)
+        name_font.setPointSizeF(9.5)
+        name_font.setBold(True)
         painter.setFont(name_font)
-        painter.setPen(QColor("#9fb0c3" if self.dark else "#6b7788"))
+        painter.setPen(QColor("#e6edf5" if self.dark else "#223044"))
         metrics = QFontMetrics(name_font)
-        name_text_value = entry.name or "（无姓名）"
-        group_text = " / ".join(
-            value for value in (entry.class_no, entry.department) if value
-        )
-        if group_text:
-            name_text_value += f"  ·  {group_text}"
         name_text = metrics.elidedText(
-            name_text_value, Qt.TextElideMode.ElideRight, name_rect.width()
+            entry.name or "（无姓名）",
+            Qt.TextElideMode.ElideRight,
+            name_rect.width(),
         )
         painter.drawText(
             name_rect,
             Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft,
             name_text,
+        )
+
+        id_font = QFont(option.font)
+        id_font.setPointSizeF(8.3)
+        painter.setFont(id_font)
+        painter.setPen(
+            QColor("#c0392b")
+            if is_duplicate
+            else QColor("#9fb0c3" if self.dark else "#6b7788")
+        )
+        metrics = QFontMetrics(id_font)
+        id_text_value = entry.student_no or "（空学号）"
+        group_text = " / ".join(
+            value for value in (entry.class_no, entry.department) if value
+        )
+        if group_text:
+            id_text_value += f"  ·  {group_text}"
+        id_text = metrics.elidedText(
+            id_text_value, Qt.TextElideMode.ElideRight, id_rect.width()
+        )
+        painter.drawText(
+            id_rect,
+            Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft,
+            id_text,
         )
 
         if gender:
