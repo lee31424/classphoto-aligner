@@ -139,6 +139,14 @@ def test_class_columns_and_filter():
     assert parse_photo_group(
         TEST_ROOT / "学籍262401班" / "IMG_3.jpg", TEST_ROOT
     ) == ("", "262401")
+    assert parse_photo_group(
+        TEST_ROOT / "电子信息工程学院" / "电子263A2" / "IMG_5.jpg",
+        TEST_ROOT,
+    ) == ("电子信息工程学院", "263A2")
+    assert parse_photo_group(
+        TEST_ROOT / "机电工程学院" / "机电2659A" / "IMG_6.jpg",
+        TEST_ROOT,
+    ) == ("机电工程学院", "2659A")
     assert parse_photo_major(
         TEST_ROOT / "学籍机械" / "机械26211" / "IMG_1.jpg",
         TEST_ROOT,

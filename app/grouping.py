@@ -119,7 +119,22 @@ def parse_photo_group(path: str | Path, root: str | Path) -> tuple[str, str]:
         class_value = _class_from_component(root_path.name)
 
     department = ""
-    if class_value:
+    full_department = ""
+    # 路径里已经出现完整学院名时，优先用它。否则“电子263A2”里的
+    # “电子”会被误当成院系，把真正的“电子信息工程学院”覆盖掉。
+    for part in reversed(directory_parts):
+        candidate = _department_from_component(part, "")
+        if candidate and re.search(r"(?:学院|学部|系)$", candidate):
+            full_department = candidate
+            break
+    if not full_department:
+        candidate = _department_from_component(root_path.name, "")
+        if candidate and re.search(r"(?:学院|学部|系)$", candidate):
+            full_department = candidate
+    if full_department:
+        department = full_department
+
+    if not department and class_value:
         for part in reversed(directory_parts):
             if class_value.upper() in part.upper():
                 candidate = _department_from_component(part, class_value)
