@@ -366,6 +366,9 @@ def test_ui(photos, entries):
     assert window.export_action.isEnabled()
     window.show()
     app.processEvents()
+    assert window._shortcut_objects["photo_delete"].key().toString() == "Del"
+    assert window._shortcut_objects["roster_end"].key().toString() == "End"
+    assert window.export_action.shortcut().toString() == "Ctrl+E"
     window.resize(1600, 900)
     app.processEvents()
     assert window.roster_view._columns == 3

@@ -32,7 +32,11 @@ from PySide6.QtWidgets import (
 )
 
 from delegates import PhotoDelegate, RosterDelegate
-from dialogs import ExcelImportDialog, ExcludedDialog
+from dialogs import (
+    ExcelImportDialog,
+    ExcludedDialog,
+    ShortcutSettingsDialog,
+)
 from excel_io import read_roster
 from exporter import ExportWorker, build_export_items, undo_export
 from grouping import (
@@ -70,6 +74,37 @@ LOG_DIR = APP_ROOT / "logs"
 OUTPUT_ROOT = APP_ROOT / "output"
 APP_VERSION = "1.0.0"
 
+SHORTCUT_DEFAULTS = {
+    "photo_delete": "Delete",
+    "roster_delete": "Delete",
+    "roster_end": "End",
+    "roster_up": "Alt+Up",
+    "roster_down": "Alt+Down",
+    "undo": "Ctrl+Z",
+    "redo": "Ctrl+Y",
+    "export": "Ctrl+E",
+}
+SHORTCUT_LABELS = {
+    "photo_delete": "照片：删除当前照片",
+    "roster_delete": "名单：删除未到场",
+    "roster_end": "名单：移到末尾",
+    "roster_up": "名单：上移",
+    "roster_down": "名单：下移",
+    "undo": "全局：撤销",
+    "redo": "全局：重做",
+    "export": "全局：导出到新文件夹",
+}
+SHORTCUT_SCOPES = {
+    "photo_delete": "photo",
+    "roster_delete": "roster",
+    "roster_end": "roster",
+    "roster_up": "roster",
+    "roster_down": "roster",
+    "undo": "global",
+    "redo": "global",
+    "export": "global",
+}
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -92,6 +127,20 @@ class MainWindow(QMainWindow):
         except (TypeError, ValueError):
             pass
         self._pending_batch_key: str | None = None
+        self.shortcut_values = dict(SHORTCUT_DEFAULTS)
+        raw_shortcuts = self.settings.value("shortcuts_json", "")
+        if raw_shortcuts:
+            try:
+                loaded_shortcuts = json.loads(str(raw_shortcuts))
+                if isinstance(loaded_shortcuts, dict):
+                    for key in self.shortcut_values:
+                        if key in loaded_shortcuts:
+                            self.shortcut_values[key] = str(
+                                loaded_shortcuts[key]
+                            )
+            except (TypeError, ValueError):
+                pass
+        self._shortcut_objects: dict[str, QShortcut] = {}
         self.excluded: list[ExcludedEntry] = []
         self._all_photos: list[PhotoItem] = []
         self._active_entries: list[RosterEntry] = []
@@ -118,6 +167,7 @@ class MainWindow(QMainWindow):
         self._syncing = False
         self.exporting = False
         self._batch_export_mode = False
+        self._advance_after_export = False
         self.worker: ExportWorker | None = None
         self.thumbs: ThumbnailManager | None = None
         self.photo_model = PhotoModel([], self)
@@ -354,7 +404,7 @@ class MainWindow(QMainWindow):
         right_layout.setContentsMargins(8, 8, 8, 8)
         right_layout.setSpacing(6)
         right_header = QHBoxLayout()
-        right_title = QLabel("名单 · 拖动排序，Delete 删除未到场")
+        right_title = QLabel("名单 · 拖动排序，右键/快捷键删除")
         right_title.setObjectName("panelTitle")
         self.roster_count_label = QLabel("0 人")
         self.roster_count_label.setStyleSheet("color:#5b6b7f;")
@@ -441,7 +491,6 @@ class MainWindow(QMainWindow):
         self.import_roster_action = QAction("导入 Excel 名单…", self)
         self.import_roster_action.triggered.connect(self.import_roster)
         self.export_action = QAction("导出到新文件夹…", self)
-        self.export_action.setShortcut(QKeySequence("Ctrl+E"))
         self.export_action.triggered.connect(self.export_to_new_folder)
         self.resume_action = QAction("继续上次导出（断点续跑）…", self)
         self.resume_action.triggered.connect(self.resume_last_export)
@@ -451,15 +500,15 @@ class MainWindow(QMainWindow):
         self.exit_action.triggered.connect(self.close)
 
         self.undo_action = QAction("撤销名单操作", self)
-        self.undo_action.setShortcut(QKeySequence("Ctrl+Z"))
         self.undo_action.triggered.connect(self.undo)
         self.redo_action = QAction("重做名单操作", self)
-        self.redo_action.setShortcut(QKeySequence("Ctrl+Y"))
         self.redo_action.triggered.connect(self.redo)
         self.delete_action = QAction("删除选中的未到场学生", self)
         self.delete_action.triggered.connect(self.delete_selected_roster)
         self.restore_action = QAction("恢复未到场…", self)
         self.restore_action.triggered.connect(self.restore_excluded)
+        self.shortcut_action = QAction("自定义快捷键…", self)
+        self.shortcut_action.triggered.connect(self._edit_shortcuts)
 
         file_menu = self.menuBar().addMenu("文件")
         file_menu.addAction(self.import_photos_action)
@@ -477,19 +526,87 @@ class MainWindow(QMainWindow):
         edit_menu.addSeparator()
         edit_menu.addAction(self.delete_action)
         edit_menu.addAction(self.restore_action)
+        edit_menu.addSeparator()
+        edit_menu.addAction(self.shortcut_action)
 
         help_menu = self.menuBar().addMenu("帮助")
         about_action = QAction("关于", self)
         about_action.triggered.connect(self._about)
         help_menu.addAction(about_action)
 
-        # 只在名单列表上生效的快捷键，避免在照片区误删名单
-        delete_shortcut = QShortcut(QKeySequence(Qt.Key.Key_Delete), self.roster_view)
-        delete_shortcut.activated.connect(self.delete_selected_roster)
-        up_shortcut = QShortcut(QKeySequence("Alt+Up"), self.roster_view)
-        up_shortcut.activated.connect(lambda: self._move_current(-1))
-        down_shortcut = QShortcut(QKeySequence("Alt+Down"), self.roster_view)
-        down_shortcut.activated.connect(lambda: self._move_current(1))
+        self._create_shortcuts()
+        self._apply_shortcuts()
+
+    def _create_shortcuts(self):
+        self._shortcut_objects = {
+            "photo_delete": QShortcut(self.photo_view),
+            "roster_delete": QShortcut(self.roster_view),
+            "roster_end": QShortcut(self.roster_view),
+            "roster_up": QShortcut(self.roster_view),
+            "roster_down": QShortcut(self.roster_view),
+        }
+        for shortcut in self._shortcut_objects.values():
+            shortcut.setContext(
+                Qt.ShortcutContext.WidgetWithChildrenShortcut
+            )
+        self._shortcut_objects["photo_delete"].activated.connect(
+            self._delete_current_photo
+        )
+        self._shortcut_objects["roster_delete"].activated.connect(
+            self.delete_selected_roster
+        )
+        self._shortcut_objects["roster_end"].activated.connect(
+            self._move_current_to_end
+        )
+        self._shortcut_objects["roster_up"].activated.connect(
+            lambda: self._move_current(-1)
+        )
+        self._shortcut_objects["roster_down"].activated.connect(
+            lambda: self._move_current(1)
+        )
+
+    def _apply_shortcuts(self):
+        action_map = {
+            "undo": self.undo_action,
+            "redo": self.redo_action,
+            "export": self.export_action,
+        }
+        for key, shortcut in self._shortcut_objects.items():
+            sequence = QKeySequence(self.shortcut_values.get(key, ""))
+            shortcut.setKey(sequence)
+            shortcut.setEnabled(not sequence.isEmpty())
+        for key, action in action_map.items():
+            sequence = QKeySequence(self.shortcut_values.get(key, ""))
+            action.setShortcut(sequence)
+            action.setShortcutContext(Qt.ShortcutContext.WindowShortcut)
+
+    def _edit_shortcuts(self):
+        dialog = ShortcutSettingsDialog(
+            self.shortcut_values,
+            SHORTCUT_LABELS,
+            SHORTCUT_DEFAULTS,
+            SHORTCUT_SCOPES,
+            self,
+        )
+        if dialog.exec() != ShortcutSettingsDialog.DialogCode.Accepted:
+            return
+        self.shortcut_values = dialog.shortcuts()
+        self._apply_shortcuts()
+        self.settings.setValue(
+            "shortcuts_json",
+            json.dumps(self.shortcut_values, ensure_ascii=False),
+        )
+        self.status_label.setText("快捷键已保存")
+
+    def _delete_current_photo(self):
+        index = self.photo_view.currentIndex()
+        if index.isValid():
+            self.delete_photo_at(index.row())
+
+    def _move_current_to_end(self):
+        index = self.roster_view.currentIndex()
+        if index.isValid():
+            self.move_roster_entry_to_end(index.row())
 
     def _apply_style(self):
         self.setStyleSheet(
@@ -900,7 +1017,59 @@ class MainWindow(QMainWindow):
         # 重建按钮后恢复原横向位置，避免一选班级就跳到最右边。
         QTimer.singleShot(0, lambda value=old_scroll: scroll_bar.setValue(value))
 
+    def _select_next_class_after_export(self):
+        if not self._class_filter:
+            return
+        pairs = set()
+        for photo in self._all_photos:
+            class_no = normalize_class(photo.class_no)
+            if not class_no:
+                continue
+            if (
+                self._department_filter
+                and photo.department != self._department_filter
+            ):
+                continue
+            pairs.add((photo.department, class_no))
+        for entry in self._active_entries:
+            class_no = normalize_class(entry.class_no)
+            if not class_no:
+                continue
+            if (
+                self._department_filter
+                and entry.department != self._department_filter
+            ):
+                continue
+            pairs.add((entry.department, class_no))
+        ordered = sorted(
+            pairs,
+            key=lambda item: (
+                class_sort_key(item[1]),
+                item[0].casefold(),
+            ),
+        )
+        current = None
+        for index, pair in enumerate(ordered):
+            if pair[1] != self._class_filter:
+                continue
+            if self._department_filter and pair[0] != self._department_filter:
+                continue
+            current = index
+            break
+        if current is None or current + 1 >= len(ordered):
+            self.status_label.setText(
+                "本班导出完成；当前院系已经是最后一个班级"
+            )
+            return
+        department, class_no = ordered[current + 1]
+        self._select_class_frame(department, class_no)
+        self.status_label.setText(
+            f"本班导出完成，已自动选择下一个班级：{class_no}"
+        )
+
     def _select_class_frame(self, department: str, class_no: str):
+        if self.exporting:
+            return
         self._department_filter = department or None
         self._class_filter = normalize_class(class_no) or None
         self._refresh_filter_options()
@@ -1955,11 +2124,12 @@ class MainWindow(QMainWindow):
                 f"batch={self._batch_export_mode}",
             )
             if self._batch_export_mode:
-                if (
+                advance = bool(
                     self._pending_batch_key
                     and not canceled
                     and errors == 0
-                ):
+                )
+                if advance:
                     self._exported_classes.add(self._pending_batch_key)
                     self._save_exported_classes()
                     self._rebuild_class_frames()
@@ -1968,6 +2138,7 @@ class MainWindow(QMainWindow):
                     f"{output}"
                 )
                 self._pending_batch_key = None
+                self._advance_after_export = advance
             else:
                 QMessageBox.information(self, "导出完成", message)
                 self.status_label.setText("导出结束")
@@ -1977,6 +2148,8 @@ class MainWindow(QMainWindow):
             self.status_label.setText("导出结束")
 
     def _on_export_finished(self):
+        advance = self._advance_after_export
+        self._advance_after_export = False
         self.exporting = False
         self._batch_export_mode = False
         self._pending_batch_key = None
@@ -1986,6 +2159,8 @@ class MainWindow(QMainWindow):
         self.progress.setVisible(False)
         self.cancel_btn.setVisible(False)
         self._update_counts()
+        if advance:
+            QTimer.singleShot(0, self._select_next_class_after_export)
 
     def cancel_export(self):
         if self.worker is not None and self.exporting:

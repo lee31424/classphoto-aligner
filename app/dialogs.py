@@ -5,14 +5,17 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QKeySequence
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QCheckBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
+    QFormLayout,
     QGridLayout,
     QHBoxLayout,
+    QKeySequenceEdit,
     QLabel,
     QListWidget,
     QListWidgetItem,
@@ -277,6 +280,94 @@ class ExcelImportDialog(QDialog):
         self.gender_col = int(gender_col) if gender_col is not None else None
         self.has_header = self.header_check.isChecked()
         self.accept()
+
+
+class ShortcutSettingsDialog(QDialog):
+    """编辑照片/名单/全局快捷键。"""
+
+    def __init__(
+        self,
+        values: dict[str, str],
+        labels: dict[str, str],
+        defaults: dict[str, str],
+        scopes: dict[str, str],
+        parent=None,
+    ):
+        super().__init__(parent)
+        self.labels = labels
+        self.defaults = defaults
+        self.scopes = scopes
+        self.edits: dict[str, QKeySequenceEdit] = {}
+        self.setWindowTitle("自定义快捷键")
+        self.resize(520, 430)
+        self._build_ui(values)
+
+    def _build_ui(self, values: dict[str, str]):
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(14, 14, 14, 14)
+        layout.setSpacing(10)
+        note = QLabel("留空表示禁用该快捷键。照片和名单的 Delete 是分开的，互不影响。")
+        note.setWordWrap(True)
+        note.setStyleSheet("color:#6b7788;")
+        layout.addWidget(note)
+
+        form = QFormLayout()
+        form.setHorizontalSpacing(18)
+        form.setVerticalSpacing(9)
+        for key, label in self.labels.items():
+            edit = QKeySequenceEdit(QKeySequence(values.get(key, "")))
+            self.edits[key] = edit
+            form.addRow(label, edit)
+        layout.addLayout(form)
+        layout.addStretch(1)
+
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok
+            | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.button(QDialogButtonBox.StandardButton.Ok).setText("保存")
+        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText("取消")
+        reset_button = buttons.addButton(
+            "恢复默认", QDialogButtonBox.ButtonRole.ResetRole
+        )
+        reset_button.clicked.connect(self._reset_defaults)
+        buttons.accepted.connect(self._accept)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+
+    def _reset_defaults(self):
+        for key, edit in self.edits.items():
+            edit.setKeySequence(QKeySequence(self.defaults.get(key, "")))
+
+    def _accept(self):
+        seen: dict[tuple[str, str], str] = {}
+        for key, edit in self.edits.items():
+            sequence = edit.keySequence()
+            if sequence.isEmpty():
+                continue
+            normalized = sequence.toString(
+                QKeySequence.SequenceFormat.PortableText
+            )
+            scope = self.scopes.get(key, "global")
+            token = (scope, normalized)
+            if token in seen:
+                QMessageBox.warning(
+                    self,
+                    "快捷键重复",
+                    f"“{self.labels[key]}”和“{self.labels[seen[token]]}”"
+                    f"在同一个操作范围内使用了相同的快捷键：{normalized}",
+                )
+                return
+            seen[token] = key
+        self.accept()
+
+    def shortcuts(self) -> dict[str, str]:
+        return {
+            key: edit.keySequence().toString(
+                QKeySequence.SequenceFormat.PortableText
+            )
+            for key, edit in self.edits.items()
+        }
 
 
 class ExcludedDialog(QDialog):
