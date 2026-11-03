@@ -494,7 +494,9 @@ class MainWindow(QMainWindow):
         bottom_layout.addLayout(counts_row)
         self.pair_label = QLabel("请先导入照片和名单")
         self.pair_label.setObjectName("pair")
-        self.pair_label.setWordWrap(True)
+        self.pair_label.setWordWrap(False)
+        counts_row.addSpacing(16)
+        counts_row.addWidget(self.pair_label)
 
         self.status_label = QLabel("就绪")
         self.status_label.setObjectName("muted")
@@ -538,7 +540,6 @@ class MainWindow(QMainWindow):
         info_row = QHBoxLayout()
         left_info = QVBoxLayout()
         left_info.setSpacing(2)
-        left_info.addWidget(self.pair_label)
         left_info.addWidget(self.status_label)
         info_row.addLayout(left_info, 1)
         info_row.addWidget(
