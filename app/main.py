@@ -1818,7 +1818,7 @@ class MainWindow(QMainWindow):
                 self.roster_view.clearSelection()
                 self.roster_view.setCurrentIndex(index)
         menu = QMenu(self)
-        add_action = menu.addAction("添加学生（学号/姓名/性别）…")
+        add_action = menu.addAction("添加学生")
         delete_action = None
         end_action = None
         if index.isValid():
