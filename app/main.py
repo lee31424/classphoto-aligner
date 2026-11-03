@@ -453,7 +453,9 @@ class MainWindow(QMainWindow):
         self.pair_label = QLabel("请先导入照片和名单")
         self.pair_label.setObjectName("pair")
         self.pair_label.setWordWrap(True)
-        bottom_layout.addWidget(self.pair_label)
+
+        self.status_label = QLabel("就绪")
+        self.status_label.setStyleSheet("color:#5b6b7f;")
 
         progress_row = QHBoxLayout()
         self.progress = QProgressBar()
@@ -468,21 +470,30 @@ class MainWindow(QMainWindow):
         self.cancel_btn.clicked.connect(self.cancel_export)
         progress_row.addWidget(self.progress, 1)
         progress_row.addWidget(self.cancel_btn)
-        bottom_layout.addLayout(progress_row)
-        self.status_label = QLabel("就绪")
-        self.status_label.setStyleSheet("color:#5b6b7f;")
-        status_row = QHBoxLayout()
-        status_row.addWidget(self.status_label, 1)
+
         self.batch_export_btn = QPushButton("修改并导出本班")
         self.batch_export_btn.setObjectName("primary")
-        self.batch_export_btn.setMinimumWidth(150)
+        self.batch_export_btn.setMinimumWidth(190)
+        self.batch_export_btn.setFixedHeight(44)
         self.batch_export_btn.setToolTip(
             "先选择一个班级，确认当前照片和名单顺序后，立即导出到 "
             "导出路径/学院/专业/班级"
         )
         self.batch_export_btn.clicked.connect(self.export_selected_class)
-        status_row.addWidget(self.batch_export_btn)
-        bottom_layout.addLayout(status_row)
+
+        info_row = QHBoxLayout()
+        left_info = QVBoxLayout()
+        left_info.setSpacing(2)
+        left_info.addWidget(self.pair_label)
+        left_info.addWidget(self.status_label)
+        info_row.addLayout(left_info, 1)
+        info_row.addWidget(
+            self.batch_export_btn,
+            0,
+            Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight,
+        )
+        bottom_layout.addLayout(info_row)
+        bottom_layout.addLayout(progress_row)
         root_layout.addWidget(bottom)
 
         self._create_actions()
