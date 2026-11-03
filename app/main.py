@@ -510,12 +510,29 @@ class MainWindow(QMainWindow):
         )
         self.batch_export_btn.clicked.connect(self.export_selected_class)
 
+        self.current_class_label = QLabel("")
+        self.current_class_label.setObjectName("currentClass")
+        self.current_class_label.setAlignment(
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+        )
+        self.current_class_label.setFixedHeight(44)
+        self.current_class_label.setMinimumWidth(90)
+        class_font = QFont(self.current_class_label.font())
+        class_font.setPixelSize(round(44 * 2 / 3))
+        class_font.setBold(True)
+        self.current_class_label.setFont(class_font)
+
         info_row = QHBoxLayout()
         left_info = QVBoxLayout()
         left_info.setSpacing(2)
         left_info.addWidget(self.pair_label)
         left_info.addWidget(self.status_label)
         info_row.addLayout(left_info, 1)
+        info_row.addWidget(
+            self.current_class_label,
+            0,
+            Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight,
+        )
         info_row.addWidget(
             self.batch_export_btn,
             0,
@@ -752,6 +769,7 @@ class MainWindow(QMainWindow):
             QLabel#counts { font-weight:700; color:@text@; }
             QLabel#validation { color:@muted@; }
             QLabel#pair { color:@text@; font-weight:600; }
+            QLabel#currentClass { color:@primary@; font-weight:700; }
             QLabel#muted { color:@muted@; font-size:9pt; }
             QLabel#classFrameHint {
                 color:@muted@; font-size:9pt; padding:8px;
@@ -899,6 +917,7 @@ class MainWindow(QMainWindow):
         )
         filtering = self._filter_active()
 
+        self.current_class_label.setText(self._class_filter or "")
         self.photo_count_label.setText(f"{photo_count} 张")
         self.roster_count_label.setText(f"{roster_count} 人")
         if filtering:
