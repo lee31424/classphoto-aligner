@@ -1,36 +1,35 @@
-# ClassPhoto Aligner
+# ClassPhoto Aligner / 照片名单对齐工具
 
-A Windows desktop tool for aligning a **fixed-order photo queue** with a **class roster**, then exporting each class as `学号.jpg` into a clean `学院/专业/班级` folder tree.
+> **说明：本项目由本人制作。本人不会任何编程，仅使用自然语言描述需求，由 DSH 完成实现。**
 
-This project was built for student ID-photo workflows where thousands of camera photos are supplied in a fixed order, while the roster must be adjusted for absent students and class order. It deliberately **does not use face recognition**; the mapping is positional.
+一个用于 Windows 的本地桌面工具：把**固定顺序的学籍照片队列**与 **Excel 名单**按位置对齐，并按学院、专业、班级批量导出为 `学号.jpg`。
 
-## Features
+核心规则：
 
-- Fixed natural-sort photo order; photos cannot be reordered in the UI.
-- Excel roster import: `.xlsx`, `.xlsm`, `.xls`.
-- Optional roster columns: student ID, name, department, class, gender.
-- Class and department grouping, with one clickable frame per class.
-- Responsive roster grid: **2 columns** on narrow windows, **3 columns** on wide windows.
-- Synchronized filtering: choosing a department/class filters both photos and roster.
-- Class-scoped drag sorting and soft-delete for absent students.
-- Right-click a photo to remove it from the queue without touching the source file.
-- Right-click a roster row to soft-delete or move it to the end of the list/class. Both are undoable.
-- Gender badge limited to **男 / 女**.
-- Per-class export with **✓ 已导出** markers:
-  - `ExportRoot/学院/专业/班级/学号.jpg`
-- Batch copy with progress, cancel, resume, per-file CSV logs and JSON summaries.
-- Log-based undo that only removes files written by the tool.
-- Virtualized thumbnails and a 4000+ photo list without decoding every image at once.
+> 第 N 张照片 = 当前名单第 N 条学生。
 
-## Screens / Workflow
+本工具不进行人脸识别，也不对照片做智能匹配，完全按照片队列位置与名单顺序对应。适合按班级分批处理大量学生证件照。
 
-1. Import a photo root folder. Subfolders are scanned recursively.
-2. Import the Excel roster and map the columns.
-3. Pick a class frame, adjust roster order/attendance.
-4. Click **修改并导出本班** to export that class immediately.
-5. Repeat for the next class.
+## 功能
 
-The class information comes from the photo path. Supported examples:
+- 照片按文件名自然排序，导入后顺序固定，界面不允许拖动照片。
+- Excel 名单支持 `.xlsx` / `.xlsm` / `.xls`。
+- 名单可选导入：学号、姓名、院系、班级、性别。
+- 性别只显示 **男 / 女**；`M/F`、`male/female` 会自动归一。
+- 每个班级一个班级框，点班级框同时筛选照片和名单。
+- 选择院系后，班级框和班级号下拉只显示该院系的班级。
+- 右侧名单根据窗口宽度自动切换为 **2 列 / 3 列**。
+- 选到具体班级后，可在本班内拖动调整顺序、删除未到场学生。
+- 左侧照片右键可删除照片；只从队列移除，不删除源文件，可撤销。
+- 右侧名单右键可删除未到场，或移到名单/本班末尾，均可撤销。
+- 按班级导出：`导出路径/学院/专业/班级/学号.jpg`。
+- 每导出一个班，班级框显示 **✓ 已导出**，标记会保存。
+- 后台复制、进度、取消、断点续跑、CSV 日志、JSON 汇总、按日志撤销。
+- 4000+ 张照片使用缩略图虚拟化，不会一次性解码全部图片。
+
+## 照片路径如何识别学院/专业/班级
+
+导入照片时选择**根目录**，工具会递归扫描子文件夹。示例：
 
 ```text
 学籍机械/机械26211/IMG_0001.JPG   -> 机械工程学院 / 机械 / 26211
@@ -38,11 +37,11 @@ The class information comes from the photo path. Supported examples:
 学籍262401班/IMG_0003.JPG          -> 机械工程学院 / 机械 / 262401
 ```
 
-If the path only has a short department name, the class code from the roster is used to resolve the full department name.
+路径里的“机械”“北校区”等简称，会在导入名单后用相同班级代码对应的完整院系名校正。如果路径里没有专业信息，会用院系简称作为专业名。
 
-## Quick Start (Windows)
+## 快速开始
 
-Requirements: Python 3.13+ (64-bit) and Windows 10/11.
+要求：Windows 10/11、Python 3.13+（64 位）。
 
 ```powershell
 git clone https://github.com/lee31424/classphoto-aligner.git
@@ -52,19 +51,34 @@ py -3 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
 
-# Start normally (no console)
-.\run.bat
-
-# Start with console for troubleshooting
-.\run_debug.bat
+.\run.bat          # 正常启动，不显示控制台
+.\run_debug.bat    # 带控制台启动，便于排错
 ```
 
-`run.bat` prefers `.venv\Scripts\pythonw.exe`, then `pyw -3`, then `pythonw`.
+`run.bat` 会优先使用 `.venv\Scripts\pythonw.exe`，其次使用 `pyw -3` / `pythonw`。
 
-## Output Layout
+## 使用流程
+
+1. 导入照片根目录。
+2. 导入 Excel 名单，确认学号、姓名、院系、班级、性别列。
+3. 点班级框选择班级。
+4. 在本班内拖动名单、删除未到场学生。
+5. 在顶部填写导出路径。
+6. 点 **修改并导出本班**，立即导出当前班。
+7. 接着选下一个班级。
+
+如果当前班照片数与名单人数不一致，工具会阻止导出，并提示先处理差值。
+
+右键操作：
+
+- 照片右键：**删除照片（仅从队列移除）**。
+- 名单右键：**删除未到场**、**移到本班末尾 / 移到名单末尾**。
+- 以上操作都支持 `Ctrl+Z` 撤销。
+
+## 输出结构
 
 ```text
-ExportRoot/
+导出路径/
 └─ 机械工程学院/
    └─ 机械/
       └─ 26211/
@@ -75,41 +89,39 @@ ExportRoot/
          └─ rename_summary_*.json
 ```
 
-- Source photos are never renamed, moved, or deleted.
-- Output must be outside the photo source folder.
-- Existing targets with the same size are skipped during resume.
-- Undo reads the generated summary/log and verifies size before deleting.
+- 源照片只读，不会被改名、移动或删除。
+- 输出目录必须位于照片源目录之外。
+- 已存在且大小一致的目标文件会跳过，可用于断点续跑。
+- 撤销只删除日志中状态为 `ok` 且大小校验一致的文件。
 
-## Project Layout
+## 项目结构
 
 ```text
 app/
-  main.py          UI, filtering, class frames, export orchestration
-  models.py        photo/roster models and class sorting
-  grouping.py      path-based department/class/major parsing
-  excel_io.py      .xlsx/.xlsm/.xls reader
-  dialogs.py       Excel column mapping and excluded-student dialog
-  delegates.py     photo cards and roster cards
-  exporter.py      preflight, copy worker, CSV/JSON logs, undo
-  thumbnails.py    lazy thumbnail loader/cache
-  widgets.py       responsive roster grid and drag-drop target handling
+  main.py         界面、筛选、班级框、导出流程
+  models.py       照片/名单模型、班级排序
+  grouping.py     路径中的学院/专业/班级解析
+  excel_io.py     .xlsx / .xlsm / .xls 读取
+  dialogs.py      Excel 列映射、未到场恢复对话框
+  delegates.py    照片卡片、名单卡片绘制
+  exporter.py     预检、复制线程、CSV/JSON 日志、撤销
+  thumbnails.py   缩略图懒加载与缓存
+  widgets.py      自适应名单网格、拖放处理
   tests/smoke_test.py
 ```
 
-Chinese documentation: [README.zh-CN.md](README.zh-CN.md).
-
-## Tests
+## 测试
 
 ```powershell
 $env:QT_QPA_PLATFORM = "offscreen"
 python app\tests\smoke_test.py
 ```
 
-The smoke test creates synthetic photos and Excel data, then verifies import, class filtering, gender mapping, responsive columns, class-scoped dragging, export/resume/undo, thumbnails, and 4000-item virtualization.
+测试会生成临时照片和 Excel，验证导入、性别、班级筛选、两列/三列布局、本班拖动、右键删除/移动、按班级导出、断点续跑、撤销、缩略图与 4000 项虚拟化。
 
-## Notes
+## 说明
 
-- This is a local Windows desktop tool, not a web service.
-- Photo ordering is fixed at import time. The roster is the only side that can be reordered.
-- The app stores window/export preferences with `QSettings`; generated logs/cache/output are ignored by git.
-- No license has been specified yet. Add one before redistributing if needed.
+- 本项目是本地 Windows 桌面工具，不是 Web 服务。
+- 照片顺序在导入时固定；只有名单可以调整。
+- 程序使用 `QSettings` 保存窗口和导出偏好；`cache/`、`logs/`、`output/`、`testdata*/`、`.venv/` 已加入 `.gitignore`。
+- 当前未指定开源许可证；如需分发，请先补充 `LICENSE`。
