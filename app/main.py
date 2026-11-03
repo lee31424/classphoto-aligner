@@ -7,10 +7,18 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from PySide6.QtCore import QModelIndex, QPoint, QSettings, QTimer, Qt
+from PySide6.QtCore import (
+    QModelIndex,
+    QPoint,
+    QSettings,
+    QTimer,
+    QUrl,
+    Qt,
+)
 from PySide6.QtGui import (
     QAction,
     QColor,
+    QDesktopServices,
     QFont,
     QKeySequence,
     QPalette,
@@ -280,6 +288,10 @@ class MainWindow(QMainWindow):
         self.export_path_btn = QPushButton("选择…")
         self.export_path_btn.clicked.connect(self._choose_batch_export_dir)
         export_row.addWidget(self.export_path_btn)
+        self.open_export_btn = QPushButton("打开导出文件夹")
+        self.open_export_btn.setToolTip("在文件资源管理器中打开当前导出目录")
+        self.open_export_btn.clicked.connect(self._open_export_folder)
+        export_row.addWidget(self.open_export_btn)
         self.export_path_edit.editingFinished.connect(self._save_batch_export_dir)
         root_layout.addLayout(export_row)
 
@@ -1934,6 +1946,40 @@ class MainWindow(QMainWindow):
         self.export_path_edit.setText(str(self.batch_export_dir))
         self._save_batch_export_dir()
         self.status_label.setText(f"导出路径已设为：{self.batch_export_dir}")
+
+    def _open_export_folder(self):
+        text = self.export_path_edit.text().strip()
+        if not text:
+            QMessageBox.information(
+                self, "没有导出路径", "请先填写或选择导出路径。"
+            )
+            return
+        base_dir = Path(text).expanduser()
+        if not base_dir.is_dir():
+            QMessageBox.information(
+                self,
+                "导出文件夹不存在",
+                f"当前导出路径还不存在：\n{base_dir}\n\n"
+                "请先执行一次导出，或重新选择目录。",
+            )
+            return
+
+        target_dir = base_dir
+        if self._class_filter:
+            class_dir = self._selected_class_output_dir(base_dir)
+            if class_dir.is_dir():
+                target_dir = class_dir
+
+        if not QDesktopServices.openUrl(
+            QUrl.fromLocalFile(str(target_dir.resolve()))
+        ):
+            QMessageBox.warning(
+                self,
+                "打开失败",
+                f"无法打开文件夹：\n{target_dir}",
+            )
+            return
+        self.status_label.setText(f"已打开导出文件夹：{target_dir}")
 
     def _selected_class_major(self) -> str:
         if not self._class_filter:
