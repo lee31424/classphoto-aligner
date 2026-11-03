@@ -124,4 +124,26 @@ python app\tests\smoke_test.py
 - 本项目是本地 Windows 桌面工具，不是 Web 服务。
 - 照片顺序在导入时固定；只有名单可以调整。
 - 程序使用 `QSettings` 保存窗口和导出偏好；`cache/`、`logs/`、`output/`、`testdata*/`、`.venv/` 已加入 `.gitignore`。
-- 当前未指定开源许可证；如需分发，请先补充 `LICENSE`。
+
+## 许可证
+
+本项目采用 **GNU General Public License v3.0（GPL-3.0）** 开源许可。
+
+```text
+Copyright (C) 2026 lee31424
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+```
+
+完整条款见 [LICENSE](LICENSE)，或访问 <https://www.gnu.org/licenses/gpl-3.0.html>。
