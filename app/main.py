@@ -1119,11 +1119,32 @@ class MainWindow(QMainWindow):
         if department not in departments:
             department = None
 
+        classes_by_department: dict[str, set[str]] = {}
+        for entry in self._active_entries:
+            class_no = normalize_class(entry.class_no)
+            if entry.department and class_no:
+                classes_by_department.setdefault(
+                    entry.department, set()
+                ).add(class_no)
+        for photo in self._all_photos:
+            class_no = normalize_class(photo.class_no)
+            if photo.department and class_no:
+                classes_by_department.setdefault(
+                    photo.department, set()
+                ).add(class_no)
+
         self.department_filter_combo.blockSignals(True)
         self.department_filter_combo.clear()
         self.department_filter_combo.addItem("全部院系", None)
         for value in departments:
-            self.department_filter_combo.addItem(value, value)
+            department_classes = classes_by_department.get(value, set())
+            exported_all = bool(department_classes) and all(
+                self._export_mark_key(value, class_no)
+                in self._exported_classes
+                for class_no in department_classes
+            )
+            label = value + ("（已全部导出）" if exported_all else "")
+            self.department_filter_combo.addItem(label, value)
         position = self.department_filter_combo.findData(department)
         self.department_filter_combo.setCurrentIndex(position if position >= 0 else 0)
         self.department_filter_combo.blockSignals(False)
@@ -2420,7 +2441,7 @@ class MainWindow(QMainWindow):
                 if advance:
                     self._exported_classes.add(self._pending_batch_key)
                     self._save_exported_classes()
-                    self._rebuild_class_frames()
+                    self._refresh_filter_options()
                 self.status_label.setText(
                     f"本班导出完成：成功 {ok}，已存在跳过 {skipped}，失败 {errors}\n"
                     f"{output}"

@@ -410,6 +410,11 @@ def test_ui(photos, entries):
     window.resize(1600, 900)
     app.processEvents()
     assert window.roster_view._columns == 3
+    stable_grid = window.roster_view.gridSize().width()
+    for _ in range(10):
+        app.processEvents()
+        assert window.roster_view._columns == 3
+        assert window.roster_view.gridSize().width() == stable_grid
     window.resize(1200, 900)
     app.processEvents()
     assert window.roster_view._columns == 2
