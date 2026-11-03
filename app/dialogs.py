@@ -36,6 +36,7 @@ from excel_io import (
     sheet_names,
 )
 from models import ExcludedEntry
+from utils import normalize_student_no_input
 
 
 class ExcelImportDialog(QDialog):
@@ -332,7 +333,7 @@ class AddRosterDialog(QDialog):
         layout.addWidget(buttons)
 
     def _accept(self):
-        student_no = self.id_edit.text().strip()
+        student_no = normalize_student_no_input(self.id_edit.text())
         if not student_no:
             QMessageBox.warning(self, "缺少学号", "学号不能为空。")
             self.id_edit.setFocus()

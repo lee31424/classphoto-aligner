@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from datetime import date, datetime, time
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
@@ -99,6 +100,12 @@ def student_no_to_text(value, number_format: str | None = None) -> str:
             text = text.zfill(width)
 
     return text
+
+
+def normalize_student_no_input(value: str) -> str:
+    """清理手动输入的学号：去掉全角/半角空白，并统一全角数字。"""
+    text = unicodedata.normalize("NFKC", str(value or ""))
+    return re.sub(r"\s+", "", text).strip()
 
 
 def sanitize_filename(name: str) -> str:

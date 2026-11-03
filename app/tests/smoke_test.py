@@ -34,7 +34,11 @@ from models import (  # noqa: E402
     sort_roster_by_class,
 )
 from thumbnails import ThumbnailManager  # noqa: E402
-from utils import natural_sort_paths, student_no_to_text  # noqa: E402
+from utils import (  # noqa: E402
+    natural_sort_paths,
+    normalize_student_no_input,
+    student_no_to_text,
+)
 
 
 TEST_ROOT = APP_DIR.parent / "testdata"
@@ -75,6 +79,7 @@ def test_utils_and_excel(roster_path: Path, ids: list[int]):
     assert student_no_to_text(2023001.0) == "2023001"
     assert student_no_to_text("00123") == "00123"
     assert student_no_to_text(123, "00000") == "00123"
+    assert normalize_student_no_input(" 2 5１ 0 2 9 3　") == "2510293"
     try:
         student_no_to_text(1.5)
     except ValueError:

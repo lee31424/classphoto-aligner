@@ -77,6 +77,7 @@ from utils import (
     is_image_file,
     natural_sort_key,
     natural_sort_paths,
+    normalize_student_no_input,
     run_id_now,
     sanitize_filename,
 )
@@ -1847,7 +1848,7 @@ class MainWindow(QMainWindow):
         if dialog.exec() != AddRosterDialog.DialogCode.Accepted:
             return
 
-        student_no = dialog.student_no.strip()
+        student_no = normalize_student_no_input(dialog.student_no)
         if not student_no:
             return
         existing_ids = {
