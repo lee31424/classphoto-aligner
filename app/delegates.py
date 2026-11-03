@@ -16,12 +16,16 @@ class PhotoDelegate(QStyledItemDelegate):
         super().__init__(parent)
         self.photo_model = photo_model
         self.thumbs = thumbs
+        self.dark = False
 
     def sizeHint(self, option, index: QModelIndex) -> QSize:  # noqa: N802
         return self.CELL_SIZE
 
     def set_thumbs(self, thumbs):
         self.thumbs = thumbs
+
+    def set_dark(self, dark: bool):
+        self.dark = bool(dark)
 
     def paint(self, painter: QPainter, option, index: QModelIndex):
         photo = index.data(PHOTO_ROLE)
@@ -35,7 +39,17 @@ class PhotoDelegate(QStyledItemDelegate):
         outer = option.rect.adjusted(3, 3, -3, -3)
         selected = bool(option.state & QStyle.StateFlag.State_Selected)
         hovered = bool(option.state & QStyle.StateFlag.State_MouseOver)
-        if selected:
+        if self.dark:
+            if selected:
+                background = QColor("#17395f")
+                border = QColor("#3b82f6")
+            elif hovered:
+                background = QColor("#223244")
+                border = QColor("#3a4f66")
+            else:
+                background = QColor("#1b2633")
+                border = QColor("#2b3948")
+        elif selected:
             background = QColor("#e3f0ff")
             border = QColor("#2f80ed")
         elif hovered:
@@ -72,10 +86,14 @@ class PhotoDelegate(QStyledItemDelegate):
             y = thumb_rect.top() + (thumb_rect.height() - scaled.height()) // 2
             painter.drawPixmap(x, y, scaled)
         else:
-            painter.setBrush(QColor("#eef1f5"))
+            painter.setBrush(
+                QColor("#24313f") if self.dark else QColor("#eef1f5")
+            )
             painter.setPen(Qt.PenStyle.NoPen)
             painter.drawRoundedRect(QRectF(thumb_rect), 5, 5)
-            painter.setPen(QColor("#9aa4b2"))
+            painter.setPen(
+                QColor("#71849a") if self.dark else QColor("#9aa4b2")
+            )
             placeholder_font = QFont(option.font)
             placeholder_font.setPointSizeF(8.5)
             painter.setFont(placeholder_font)
@@ -106,7 +124,9 @@ class PhotoDelegate(QStyledItemDelegate):
                 outer.width() - 16,
                 16,
             )
-            painter.setPen(QColor("#7a8798"))
+            painter.setPen(
+                QColor("#8fa1b5") if self.dark else QColor("#7a8798")
+            )
             group_font = QFont(option.font)
             group_font.setPointSizeF(7.4)
             painter.setFont(group_font)
@@ -126,7 +146,9 @@ class PhotoDelegate(QStyledItemDelegate):
             outer.width() - 16,
             22,
         )
-        painter.setPen(QColor("#2f3b4a"))
+        painter.setPen(
+            QColor("#dce6f0") if self.dark else QColor("#2f3b4a")
+        )
         name_font = QFont(option.font)
         name_font.setPointSizeF(8.5)
         painter.setFont(name_font)
@@ -150,6 +172,10 @@ class RosterDelegate(QStyledItemDelegate):
         super().__init__(parent)
         self.roster_model = roster_model
         self.cell_width = 100
+        self.dark = False
+
+    def set_dark(self, dark: bool):
+        self.dark = bool(dark)
 
     def set_cell_width(self, width: int):
         self.cell_width = max(80, int(width))
@@ -167,7 +193,17 @@ class RosterDelegate(QStyledItemDelegate):
         rect = option.rect.adjusted(2, 2, -2, -2)
         selected = bool(option.state & QStyle.StateFlag.State_Selected)
         hovered = bool(option.state & QStyle.StateFlag.State_MouseOver)
-        if selected:
+        if self.dark:
+            if selected:
+                painter.setBrush(QColor("#17395f"))
+                painter.setPen(QPen(QColor("#3b82f6"), 2))
+            elif hovered:
+                painter.setBrush(QColor("#223244"))
+                painter.setPen(QPen(QColor("#3a4f66"), 1))
+            else:
+                painter.setBrush(QColor("#1b2633"))
+                painter.setPen(QPen(QColor("#2b3948"), 1))
+        elif selected:
             painter.setBrush(QColor("#e3f0ff"))
             painter.setPen(QPen(QColor("#2f80ed"), 2))
         elif hovered:
@@ -180,7 +216,12 @@ class RosterDelegate(QStyledItemDelegate):
 
         is_extra = index.row() + 1 > self.roster_model.counterpart_count
         is_duplicate = entry.student_no in self.roster_model.duplicate_ids
-        number_color = QColor("#c0392b") if (is_extra or is_duplicate) else QColor("#5b6b7f")
+        normal_number = "#8fa1b5" if self.dark else "#5b6b7f"
+        number_color = (
+            QColor("#c0392b")
+            if (is_extra or is_duplicate)
+            else QColor(normal_number)
+        )
         number_rect = QRect(rect.left() + 8, rect.top() + 9, 34, 28)
         painter.setBrush(number_color)
         painter.setPen(Qt.PenStyle.NoPen)
@@ -202,7 +243,11 @@ class RosterDelegate(QStyledItemDelegate):
         id_font.setPointSizeF(9.5)
         id_font.setBold(True)
         painter.setFont(id_font)
-        painter.setPen(QColor("#c0392b") if is_duplicate else QColor("#223044"))
+        painter.setPen(
+            QColor("#c0392b")
+            if is_duplicate
+            else QColor("#e6edf5" if self.dark else "#223044")
+        )
         metrics = QFontMetrics(id_font)
         id_text = metrics.elidedText(
             entry.student_no or "（空学号）",
@@ -218,7 +263,7 @@ class RosterDelegate(QStyledItemDelegate):
         name_font = QFont(option.font)
         name_font.setPointSizeF(8.3)
         painter.setFont(name_font)
-        painter.setPen(QColor("#6b7788"))
+        painter.setPen(QColor("#9fb0c3" if self.dark else "#6b7788"))
         metrics = QFontMetrics(name_font)
         name_text_value = entry.name or "（无姓名）"
         group_text = " / ".join(
@@ -237,8 +282,20 @@ class RosterDelegate(QStyledItemDelegate):
 
         if gender:
             gender_rect = QRect(rect.right() - 58, rect.top() + 7, 28, 18)
-            gender_bg = QColor("#eaf3ff") if gender == "男" else QColor("#fff0f4")
-            gender_fg = QColor("#2f80ed") if gender == "男" else QColor("#c0396b")
+            if self.dark:
+                gender_bg = (
+                    QColor("#1e3a5f") if gender == "男" else QColor("#3a1f32")
+                )
+                gender_fg = (
+                    QColor("#8fc2ff") if gender == "男" else QColor("#ff9fc4")
+                )
+            else:
+                gender_bg = (
+                    QColor("#eaf3ff") if gender == "男" else QColor("#fff0f4")
+                )
+                gender_fg = (
+                    QColor("#2f80ed") if gender == "男" else QColor("#c0396b")
+                )
             painter.setBrush(gender_bg)
             painter.setPen(Qt.PenStyle.NoPen)
             painter.drawRoundedRect(QRectF(gender_rect), 8, 8)
@@ -252,7 +309,7 @@ class RosterDelegate(QStyledItemDelegate):
             )
 
         handle_rect = QRect(rect.right() - 24, rect.top() + 10, 18, 26)
-        painter.setPen(QColor("#b0bac7"))
+        painter.setPen(QColor("#6f8298" if self.dark else "#b0bac7"))
         handle_font = QFont(option.font)
         handle_font.setPointSizeF(13)
         painter.setFont(handle_font)

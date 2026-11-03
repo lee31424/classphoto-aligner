@@ -8,7 +8,14 @@ from datetime import datetime
 from pathlib import Path
 
 from PySide6.QtCore import QModelIndex, QPoint, QSettings, QTimer, Qt
-from PySide6.QtGui import QAction, QFont, QKeySequence, QShortcut
+from PySide6.QtGui import (
+    QAction,
+    QColor,
+    QFont,
+    QKeySequence,
+    QPalette,
+    QShortcut,
+)
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QApplication,
@@ -110,6 +117,9 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.settings = QSettings("PhotoRosterTool", "PhotoRosterTool")
+        self._dark_theme = bool(
+            self.settings.value("dark_theme", False, type=bool)
+        )
         self.source_dir: Path | None = None
         self.output_dir: Path | None = None
         self.last_output_dir: Path | None = None
@@ -238,6 +248,13 @@ class MainWindow(QMainWindow):
         toolbar_layout.addWidget(self.export_btn)
         toolbar_layout.addWidget(self.resume_btn)
         toolbar_layout.addWidget(self.undo_export_btn)
+        toolbar_layout.addSpacing(8)
+        self.theme_btn = QPushButton("深色")
+        self.theme_btn.setObjectName("themeToggle")
+        self.theme_btn.setFixedWidth(72)
+        self.theme_btn.setToolTip("切换深色 / 浅色主题")
+        self.theme_btn.clicked.connect(self._toggle_theme)
+        toolbar_layout.addWidget(self.theme_btn)
         root_layout.addWidget(toolbar)
 
         counts_row = QHBoxLayout()
@@ -283,7 +300,7 @@ class MainWindow(QMainWindow):
         self.class_filter_combo.addItem("全部班级号", None)
         filter_layout.addWidget(self.class_filter_combo)
         self.filter_info_label = QLabel("尚未导入班级字段")
-        self.filter_info_label.setStyleSheet("color:#7a8798; font-size:9pt;")
+        self.filter_info_label.setObjectName("muted")
         filter_layout.addWidget(self.filter_info_label, 1)
         self.reset_filter_btn = QPushButton("清除筛选")
         self.reset_filter_btn.clicked.connect(self.reset_roster_filter)
@@ -305,10 +322,14 @@ class MainWindow(QMainWindow):
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff
         )
         self.class_frames_widget = QWidget()
+        self.class_frames_widget.setObjectName("classFramesWidget")
+        self.class_frames_widget.setAutoFillBackground(False)
         self.class_frames_layout = QHBoxLayout(self.class_frames_widget)
         self.class_frames_layout.setContentsMargins(4, 2, 4, 2)
         self.class_frames_layout.setSpacing(7)
         self.class_frames_scroll.setWidget(self.class_frames_widget)
+        self.class_frames_scroll.setAutoFillBackground(False)
+        self.class_frames_scroll.viewport().setAutoFillBackground(False)
         root_layout.addWidget(self.class_frames_scroll)
 
         self.department_filter_combo.currentIndexChanged.connect(
@@ -331,13 +352,13 @@ class MainWindow(QMainWindow):
         left_title = QLabel("照片 · 按班级分块，顺序固定")
         left_title.setObjectName("panelTitle")
         self.photo_count_label = QLabel("0 张")
-        self.photo_count_label.setStyleSheet("color:#5b6b7f;")
+        self.photo_count_label.setObjectName("muted")
         left_header.addWidget(left_title)
         left_header.addStretch(1)
         left_header.addWidget(self.photo_count_label)
         left_layout.addLayout(left_header)
         self.photo_group_label = QLabel("当前框：全部班级")
-        self.photo_group_label.setStyleSheet("color:#6b7788; font-size:9pt;")
+        self.photo_group_label.setObjectName("muted")
         left_layout.addWidget(self.photo_group_label)
 
         self.photo_view = QListView()
@@ -366,9 +387,7 @@ class MainWindow(QMainWindow):
         self.photo_view.setDropIndicatorShown(False)
         self.photo_view.setDragDropMode(QAbstractItemView.DragDropMode.NoDragDrop)
         self.photo_view.setMouseTracking(True)
-        self.photo_view.setStyleSheet(
-            "QListView{background:#f7f8fa;border:1px solid #dfe4ec;border-radius:6px;}"
-        )
+        self.photo_view.setObjectName("photoView")
         self.photo_delegate = PhotoDelegate(self.photo_model, None, self)
         self.photo_view.setModel(self.photo_model)
         self.photo_view.setItemDelegate(self.photo_delegate)
@@ -384,7 +403,7 @@ class MainWindow(QMainWindow):
         left_layout.addWidget(self.photo_view, 1)
 
         self.source_label = QLabel("尚未导入照片")
-        self.source_label.setStyleSheet("color:#7a8798; font-size:9pt;")
+        self.source_label.setObjectName("muted")
         self.source_label.setTextInteractionFlags(
             Qt.TextInteractionFlag.TextSelectableByMouse
         )
@@ -399,7 +418,7 @@ class MainWindow(QMainWindow):
         right_title = QLabel("名单 · 拖动排序，右键/快捷键删除")
         right_title.setObjectName("panelTitle")
         self.roster_count_label = QLabel("0 人")
-        self.roster_count_label.setStyleSheet("color:#5b6b7f;")
+        self.roster_count_label.setObjectName("muted")
         right_header.addWidget(right_title)
         right_header.addStretch(1)
         right_header.addWidget(self.roster_count_label)
@@ -414,9 +433,7 @@ class MainWindow(QMainWindow):
         self.roster_view.setVerticalScrollMode(
             QAbstractItemView.ScrollMode.ScrollPerPixel
         )
-        self.roster_view.setStyleSheet(
-            "QListView{background:#f7f8fa;border:1px solid #dfe4ec;border-radius:6px;}"
-        )
+        self.roster_view.setObjectName("rosterView")
         self.roster_delegate = RosterDelegate(self.roster_model, self)
         self.roster_view.setModel(self.roster_model)
         self.roster_view.setItemDelegate(self.roster_delegate)
@@ -437,7 +454,7 @@ class MainWindow(QMainWindow):
             " 删除未到场学生会让后续学生整体前移。"
         )
         hint.setWordWrap(True)
-        hint.setStyleSheet("color:#7a8798; font-size:9pt;")
+        hint.setObjectName("muted")
         right_layout.addWidget(hint)
 
         self.splitter.addWidget(left_panel)
@@ -455,7 +472,7 @@ class MainWindow(QMainWindow):
         self.pair_label.setWordWrap(True)
 
         self.status_label = QLabel("就绪")
-        self.status_label.setStyleSheet("color:#5b6b7f;")
+        self.status_label.setObjectName("muted")
 
         progress_row = QHBoxLayout()
         self.progress = QProgressBar()
@@ -622,51 +639,202 @@ class MainWindow(QMainWindow):
         if index.isValid():
             self.move_roster_entry_to_end(index.row())
 
+    def _toggle_theme(self):
+        self._dark_theme = not self._dark_theme
+        self.settings.setValue("dark_theme", self._dark_theme)
+        self._apply_style()
+        self.status_label.setText(
+            "已切换到深色主题" if self._dark_theme else "已切换到浅色主题"
+        )
+
+    def _theme_palette(self):
+        c = self._theme_colors()
+        palette = QPalette()
+        palette.setColor(QPalette.ColorRole.Window, QColor(c["window"]))
+        palette.setColor(QPalette.ColorRole.WindowText, QColor(c["text"]))
+        palette.setColor(QPalette.ColorRole.Base, QColor(c["view"]))
+        palette.setColor(QPalette.ColorRole.AlternateBase, QColor(c["panel"]))
+        palette.setColor(QPalette.ColorRole.Text, QColor(c["text"]))
+        palette.setColor(QPalette.ColorRole.Button, QColor(c["button"]))
+        palette.setColor(QPalette.ColorRole.ButtonText, QColor(c["text"]))
+        palette.setColor(QPalette.ColorRole.Highlight, QColor(c["primary"]))
+        palette.setColor(
+            QPalette.ColorRole.HighlightedText, QColor("#ffffff")
+        )
+        palette.setColor(QPalette.ColorRole.ToolTipBase, QColor(c["panel"]))
+        palette.setColor(QPalette.ColorRole.ToolTipText, QColor(c["text"]))
+        palette.setColor(
+            QPalette.ColorRole.PlaceholderText, QColor(c["muted"])
+        )
+        palette.setColor(
+            QPalette.ColorGroup.Disabled,
+            QPalette.ColorRole.Text,
+            QColor(c["disabled_text"]),
+        )
+        palette.setColor(
+            QPalette.ColorGroup.Disabled,
+            QPalette.ColorRole.ButtonText,
+            QColor(c["disabled_text"]),
+        )
+        return palette
+
+    def _theme_colors(self) -> dict[str, str]:
+        if self._dark_theme:
+            return {
+                "window": "#0f151d",
+                "panel": "#18222d",
+                "view": "#131c26",
+                "border": "#2b3948",
+                "text": "#dce6f0",
+                "muted": "#8fa1b5",
+                "button": "#22303e",
+                "button_hover": "#2c3d50",
+                "button_disabled": "#1a2430",
+                "disabled_text": "#5f7185",
+                "input": "#111a24",
+                "primary": "#3b82f6",
+                "primary_hover": "#2f6fd0",
+                "primary_disabled": "#2b4a70",
+                "selected_bg": "#17395f",
+                "selected_text": "#bcd9ff",
+                "exported_bg": "#123528",
+                "exported_text": "#7ee2ad",
+                "scroll": "#34475b",
+            }
+        return {
+            "window": "#f3f5f8",
+            "panel": "#ffffff",
+            "view": "#f7f8fa",
+            "border": "#dfe4ec",
+            "text": "#223044",
+            "muted": "#6b7788",
+            "button": "#ffffff",
+            "button_hover": "#f2f7ff",
+            "button_disabled": "#f5f6f8",
+            "disabled_text": "#9aa4b2",
+            "input": "#ffffff",
+            "primary": "#2f80ed",
+            "primary_hover": "#1f6fd6",
+            "primary_disabled": "#a9c8f5",
+            "selected_bg": "#eaf3ff",
+            "selected_text": "#1f5fae",
+            "exported_bg": "#f0fbf5",
+            "exported_text": "#1f6f4a",
+            "scroll": "#c5cfdb",
+        }
+
     def _apply_style(self):
-        self.setStyleSheet(
-            """
-            QMainWindow { background:#f3f5f8; }
-            QFrame#toolbar {
-                background:#ffffff; border:1px solid #dfe4ec; border-radius:8px;
+        c = self._theme_colors()
+        template = """
+            QMainWindow { background:@window@; }
+            QWidget { color:@text@; }
+            QFrame#toolbar, QFrame#panel, QFrame#filterBar {
+                background:@panel@; border:1px solid @border@; border-radius:8px;
             }
-            QFrame#panel {
-                background:#ffffff; border:1px solid #dfe4ec; border-radius:8px;
+            QScrollArea#classFrames { background:transparent; border:none; }
+            QWidget#classFramesWidget { background:transparent; }
+            QListView#photoView, QListView#rosterView {
+                background:@view@; border:1px solid @border@; border-radius:6px;
             }
-            QFrame#filterBar {
-                background:#ffffff; border:1px solid #dfe4ec; border-radius:8px;
+            QLabel#panelTitle { font-weight:700; color:@text@; font-size:10pt; }
+            QLabel#counts { font-weight:700; color:@text@; }
+            QLabel#validation { color:@muted@; }
+            QLabel#pair { color:@text@; font-weight:600; }
+            QLabel#muted { color:@muted@; font-size:9pt; }
+            QLabel#classFrameHint {
+                color:@muted@; font-size:9pt; padding:8px;
             }
-            QScrollArea#classFrames {
-                background:transparent; border:none;
-            }
-            QPushButton#classFrame {
-                background:#ffffff; border:1px solid #dfe4ec; border-radius:8px;
-                padding:4px 9px; text-align:left; color:#334155;
-            }
-            QPushButton#classFrame:hover { border-color:#9dbbe0; background:#f5f9ff; }
-            QPushButton#classFrame[exported="true"] {
-                border-color:#7fc9a4; background:#f0fbf5; color:#1f6f4a;
-            }
-            QPushButton#classFrame[selected="true"] {
-                border:2px solid #2f80ed; background:#eaf3ff; color:#1f5fae;
-            }
-            QLabel#panelTitle { font-weight:700; color:#223044; font-size:10pt; }
-            QLabel#counts { font-weight:700; color:#223044; }
-            QLabel#validation { color:#5b6b7f; }
-            QLabel#pair { color:#223044; font-weight:600; }
             QPushButton {
-                padding:6px 12px; border:1px solid #cfd8e3; border-radius:6px;
-                background:#ffffff; color:#223044;
+                padding:6px 12px; border:1px solid @border@; border-radius:6px;
+                background:@button@; color:@text@;
             }
-            QPushButton:hover { background:#f2f7ff; border-color:#9bbcf0; }
-            QPushButton:disabled { color:#9aa4b2; background:#f5f6f8; }
+            QPushButton:hover {
+                background:@button_hover@; border-color:@primary@;
+            }
+            QPushButton:disabled {
+                color:@disabled_text@; background:@button_disabled@;
+            }
             QPushButton#primary {
-                background:#2f80ed; color:#ffffff; border-color:#2f80ed;
+                background:@primary@; color:#ffffff; border-color:@primary@;
                 font-weight:700;
             }
-            QPushButton#primary:hover { background:#1f6fd6; }
-            QPushButton#primary:disabled { background:#a9c8f5; border-color:#a9c8f5; }
-            """
-        )
+            QPushButton#primary:hover { background:@primary_hover@; }
+            QPushButton#primary:disabled {
+                background:@primary_disabled@; border-color:@primary_disabled@;
+            }
+            QPushButton#themeToggle { padding:6px 8px; }
+            QPushButton#classFrame {
+                background:@panel@; border:1px solid @border@; border-radius:8px;
+                padding:4px 9px; text-align:left; color:@text@;
+            }
+            QPushButton#classFrame:hover {
+                border-color:@primary@; background:@button_hover@;
+            }
+            QPushButton#classFrame[exported="true"] {
+                border-color:@exported_text@; background:@exported_bg@;
+                color:@exported_text@;
+            }
+            QPushButton#classFrame[selected="true"] {
+                border:2px solid @primary@; background:@selected_bg@;
+                color:@selected_text@;
+            }
+            QLineEdit, QComboBox {
+                background:@input@; color:@text@; border:1px solid @border@;
+                border-radius:5px; padding:4px 6px;
+            }
+            QLineEdit:focus, QComboBox:focus { border-color:@primary@; }
+            QComboBox QAbstractItemView {
+                background:@panel@; color:@text@; border:1px solid @border@;
+                selection-background-color:@selected_bg@;
+                selection-color:@selected_text@;
+            }
+            QMenu {
+                background:@panel@; color:@text@; border:1px solid @border@;
+            }
+            QMenu::item:selected {
+                background:@selected_bg@; color:@selected_text@;
+            }
+            QProgressBar {
+                background:@button_disabled@; border:1px solid @border@;
+                border-radius:5px; text-align:center; color:@text@;
+            }
+            QProgressBar::chunk {
+                background:@primary@; border-radius:4px;
+            }
+            QScrollBar:vertical, QScrollBar:horizontal {
+                background:@view@; width:11px; height:11px; margin:0;
+            }
+            QScrollBar::handle:vertical, QScrollBar::handle:horizontal {
+                background:@scroll@; border-radius:5px; min-height:24px;
+                min-width:24px;
+            }
+            QScrollBar::add-line, QScrollBar::sub-line { width:0; height:0; }
+            QToolTip {
+                background:@panel@; color:@text@; border:1px solid @border@;
+                padding:4px;
+            }
+        """
+        for key, value in c.items():
+            template = template.replace(f"@{key}@", value)
+        self.setStyleSheet(template)
+        app = QApplication.instance()
+        if app is not None:
+            app.setPalette(self._theme_palette())
+        if hasattr(self, "photo_delegate"):
+            self.photo_delegate.set_dark(self._dark_theme)
+        if hasattr(self, "roster_delegate"):
+            self.roster_delegate.set_dark(self._dark_theme)
+        for view in (
+            getattr(self, "photo_view", None),
+            getattr(self, "roster_view", None),
+        ):
+            if view is not None:
+                view.viewport().update()
+        if hasattr(self, "theme_btn"):
+            self.theme_btn.setText("浅色" if self._dark_theme else "深色")
+            self.theme_btn.setToolTip(
+                "切换到浅色主题" if self._dark_theme else "切换到深色主题"
+            )
 
     # -------------------------------------------------------- window state
     def _restore_window_state(self):
@@ -969,7 +1137,7 @@ class MainWindow(QMainWindow):
                 if self._department_filter
                 else "导入带班级信息的照片/名单后，这里会为每个班级显示一个框"
             )
-            hint.setStyleSheet("color:#8a96a6; font-size:9pt; padding:8px;")
+            hint.setObjectName("classFrameHint")
             self.class_frames_layout.addWidget(hint)
             self.class_frames_layout.addStretch(1)
             return

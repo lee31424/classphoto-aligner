@@ -369,6 +369,18 @@ def test_ui(photos, entries):
     assert window._shortcut_objects["photo_delete"].key().toString() == "Del"
     assert window._shortcut_objects["roster_end"].key().toString() == "End"
     assert window.export_action.shortcut().toString() == "Ctrl+E"
+
+    window._dark_theme = True
+    window._apply_style()
+    assert window.photo_delegate.dark
+    assert window.roster_delegate.dark
+    assert window.theme_btn.text() == "浅色"
+    assert "#0f151d" in window.styleSheet()
+    window._dark_theme = False
+    window._apply_style()
+    assert not window.photo_delegate.dark
+    assert window.theme_btn.text() == "深色"
+
     window.resize(1600, 900)
     app.processEvents()
     assert window.roster_view._columns == 3
