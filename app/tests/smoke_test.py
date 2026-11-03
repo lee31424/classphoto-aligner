@@ -10,7 +10,8 @@ from pathlib import Path
 from openpyxl import Workbook
 from PySide6.QtCore import QEventLoop, QItemSelectionModel, QSize, QTimer
 from PySide6.QtGui import QColor, QImage, QPainter
-from PySide6.QtWidgets import QApplication, QPushButton
+from PySide6.QtWidgets import QApplication, QMessageBox, QPushButton
+from unittest.mock import patch
 
 APP_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(APP_DIR))
@@ -232,6 +233,22 @@ def test_class_columns_and_filter():
         "2023004",
     ]
     window.undo()
+
+    # 右键“移到本班末尾”和“删除照片”的底层操作可撤销
+    window.move_roster_entry_to_end(0)
+    assert [entry.student_no for entry in window.roster_model.entries()] == [
+        "2023002",
+        "2023003",
+    ]
+    window.undo()
+    with patch.object(
+        QMessageBox, "question", return_value=QMessageBox.StandardButton.Yes
+    ):
+        window.delete_photo_at(0)
+    assert window.photo_model.rowCount() == 1
+    window.undo()
+    assert window.photo_model.rowCount() == 2
+
     window._exported_classes.add(
         window._export_mark_key("信息学院", "2班")
     )

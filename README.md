@@ -13,6 +13,8 @@ This project was built for student ID-photo workflows where thousands of camera 
 - Responsive roster grid: **2 columns** on narrow windows, **3 columns** on wide windows.
 - Synchronized filtering: choosing a department/class filters both photos and roster.
 - Class-scoped drag sorting and soft-delete for absent students.
+- Right-click a photo to remove it from the queue without touching the source file.
+- Right-click a roster row to soft-delete or move it to the end of the list/class. Both are undoable.
 - Gender badge limited to **男 / 女**.
 - Per-class export with **✓ 已导出** markers:
   - `ExportRoot/学院/专业/班级/学号.jpg`

@@ -7,7 +7,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from PySide6.QtCore import QModelIndex, QSettings, QTimer, Qt
+from PySide6.QtCore import QModelIndex, QPoint, QSettings, QTimer, Qt
 from PySide6.QtGui import QAction, QFont, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QListView,
     QMainWindow,
+    QMenu,
     QMessageBox,
     QProgressBar,
     QPushButton,
@@ -97,10 +98,22 @@ class MainWindow(QMainWindow):
         self._department_filter: str | None = None
         self._class_filter: str | None = None
         self._undo_stack: list[
-            tuple[list[RosterEntry], list[ExcludedEntry], str | None, str | None]
+            tuple[
+                list[RosterEntry],
+                list[ExcludedEntry],
+                str | None,
+                str | None,
+                list[PhotoItem],
+            ]
         ] = []
         self._redo_stack: list[
-            tuple[list[RosterEntry], list[ExcludedEntry], str | None, str | None]
+            tuple[
+                list[RosterEntry],
+                list[ExcludedEntry],
+                str | None,
+                str | None,
+                list[PhotoItem],
+            ]
         ] = []
         self._syncing = False
         self.exporting = False
@@ -320,6 +333,12 @@ class MainWindow(QMainWindow):
         self.photo_view.selectionModel().currentChanged.connect(
             self._on_photo_current_changed
         )
+        self.photo_view.setContextMenuPolicy(
+            Qt.ContextMenuPolicy.CustomContextMenu
+        )
+        self.photo_view.customContextMenuRequested.connect(
+            self._on_photo_context_menu
+        )
         left_layout.addWidget(self.photo_view, 1)
 
         self.source_label = QLabel("尚未导入照片")
@@ -362,6 +381,12 @@ class MainWindow(QMainWindow):
         self.roster_view.move_requested.connect(self._on_move_roster)
         self.roster_view.selectionModel().currentChanged.connect(
             self._on_roster_current_changed
+        )
+        self.roster_view.setContextMenuPolicy(
+            Qt.ContextMenuPolicy.CustomContextMenu
+        )
+        self.roster_view.customContextMenuRequested.connect(
+            self._on_roster_context_menu
         )
         right_layout.addWidget(self.roster_view, 1)
 
@@ -1247,6 +1272,126 @@ class MainWindow(QMainWindow):
         else:
             self.pair_label.setText("请先导入照片和名单")
 
+    # ------------------------------------------------------- context menus
+    def _on_photo_context_menu(self, position: QPoint):
+        if self.exporting:
+            return
+        index = self.photo_view.indexAt(position)
+        if not index.isValid():
+            return
+        self.photo_view.setCurrentIndex(index)
+        photo = self.photo_model.photo_at(index.row())
+        if photo is None:
+            return
+        menu = QMenu(self)
+        delete_action = menu.addAction("删除照片（仅从队列移除）")
+        delete_action.setToolTip("不会删除磁盘上的源照片")
+        chosen = menu.exec(self.photo_view.viewport().mapToGlobal(position))
+        if chosen == delete_action:
+            self.delete_photo_at(index.row())
+
+    def delete_photo_at(self, row: int):
+        if self.exporting:
+            return
+        photo = self.photo_model.photo_at(row)
+        if photo is None:
+            return
+        answer = QMessageBox.question(
+            self,
+            "删除照片",
+            f"从当前照片队列中移除这张照片？\n\n{photo.name}\n{photo.path}\n\n"
+            "只从队列移除，不会删除磁盘上的源文件。\n"
+            "删除后可用 Ctrl+Z 撤销。",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+
+        self._push_history()
+        removed = False
+        for index, value in enumerate(self._all_photos):
+            if value is photo:
+                self._all_photos.pop(index)
+                removed = True
+                break
+        if not removed:
+            self._undo_stack.pop()
+            self._update_counts()
+            return
+        for seq, value in enumerate(self._all_photos, start=1):
+            value.seq = seq
+        resolve_departments_from_roster(self._all_photos, self._active_entries)
+        self._refresh_filter_options()
+        self._apply_filters()
+        self.photo_view.scrollToTop()
+        self._log_action(
+            "delete_photo",
+            f"name={photo.name} path={photo.path} class={photo.class_no}",
+        )
+        self.status_label.setText(
+            f"已从照片队列移除：{photo.name}（源文件未删除）"
+        )
+
+    def _on_roster_context_menu(self, position: QPoint):
+        if self.exporting:
+            return
+        index = self.roster_view.indexAt(position)
+        if not index.isValid():
+            return
+        selection = self.roster_view.selectionModel()
+        if not selection.isSelected(index):
+            self.roster_view.clearSelection()
+            self.roster_view.setCurrentIndex(index)
+        menu = QMenu(self)
+        delete_action = menu.addAction("删除未到场")
+        menu.addSeparator()
+        if self._class_filter:
+            end_text = "移到本班末尾"
+        elif self._filter_active():
+            end_text = "移到筛选结果末尾"
+        else:
+            end_text = "移到名单末尾"
+        end_action = menu.addAction(end_text)
+        chosen = menu.exec(self.roster_view.viewport().mapToGlobal(position))
+        if chosen == delete_action:
+            self.delete_selected_roster()
+        elif chosen == end_action:
+            self.move_roster_entry_to_end(index.row())
+
+    def move_roster_entry_to_end(self, row: int):
+        if self.exporting:
+            return
+        if row < 0 or row >= self.roster_model.rowCount():
+            return
+        target = self.roster_model.rowCount()
+        if row == target - 1:
+            self.status_label.setText("该学生已经在末尾")
+            return
+        self._push_history()
+        if not self.roster_model.move_row(row, target):
+            self._undo_stack.pop()
+            self._update_counts()
+            return
+        if self._filter_active():
+            self._sync_active_order_from_filtered()
+        else:
+            self._active_entries = self.roster_model.entries()
+        new_row = self.roster_model.rowCount() - 1
+        new_index = self.roster_model.index(new_row, 0)
+        self.roster_view.setCurrentIndex(new_index)
+        self.roster_view.scrollTo(
+            new_index, QAbstractItemView.ScrollHint.PositionAtCenter
+        )
+        self._update_counts()
+        self._update_pair_label()
+        entry = self.roster_model.entry_at(new_row)
+        self._log_action(
+            "move_roster_end",
+            f"id={entry.student_no if entry else ''}",
+        )
+        self.status_label.setText("已移到名单末尾")
+
     # ------------------------------------------------------------- history
     def _snapshot(self):
         return (
@@ -1254,6 +1399,7 @@ class MainWindow(QMainWindow):
             list(self.excluded),
             self._department_filter,
             self._class_filter,
+            list(self._all_photos),
         )
 
     def _push_history(self):
@@ -1264,11 +1410,21 @@ class MainWindow(QMainWindow):
         self._update_counts()
 
     def _restore_snapshot(self, snapshot):
-        entries, excluded, department_filter, class_filter = snapshot
+        (
+            entries,
+            excluded,
+            department_filter,
+            class_filter,
+            photos,
+        ) = snapshot
         self._active_entries = list(entries)
         self.excluded = list(excluded)
         self._department_filter = department_filter
         self._class_filter = class_filter
+        self._all_photos = list(photos)
+        for seq, photo in enumerate(self._all_photos, start=1):
+            photo.seq = seq
+        resolve_departments_from_roster(self._all_photos, self._active_entries)
         self._refresh_filter_options()
         self._apply_filters()
         self.roster_view.clearSelection()
