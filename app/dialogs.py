@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QPoint, QRect, Qt, Signal
 from PySide6.QtGui import (
     QGuiApplication,
     QImageReader,
@@ -289,6 +289,27 @@ class ExcelImportDialog(QDialog):
         self.accept()
 
 
+class _PreviewLabel(QLabel):
+    """预览图标签：点击图片外的空白区域发出信号。"""
+
+    clicked_blank = Signal()
+
+    def mousePressEvent(self, event):  # noqa: N802
+        if event.button() == Qt.MouseButton.LeftButton:
+            pixmap = self.pixmap()
+            if pixmap is None or pixmap.isNull():
+                self.clicked_blank.emit()
+                event.accept()
+                return
+            image_rect = QRect(QPoint(0, 0), pixmap.size())
+            image_rect.moveCenter(self.rect().center())
+            if not image_rect.contains(event.position().toPoint()):
+                self.clicked_blank.emit()
+                event.accept()
+                return
+        super().mousePressEvent(event)
+
+
 class PhotoPreviewDialog(QDialog):
     """大图预览；按屏幕可用区域自动缩放。"""
 
@@ -301,9 +322,11 @@ class PhotoPreviewDialog(QDialog):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(8, 8, 8, 8)
         layout.setSpacing(8)
-        label = QLabel()
+        label = _PreviewLabel()
         label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         label.setStyleSheet("background:#000000; color:#dddddd;")
+        label.setToolTip("点击图片外的空白处关闭")
+        label.clicked_blank.connect(self.reject)
         layout.addWidget(label, 1)
 
         reader = QImageReader(str(path))
@@ -338,6 +361,14 @@ class PhotoPreviewDialog(QDialog):
         buttons.button(QDialogButtonBox.StandardButton.Close).setText("关闭")
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
+
+    def mousePressEvent(self, event):  # noqa: N802
+        # 点击对话框四周的空白边距也关闭。
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.reject()
+            event.accept()
+            return
+        super().mousePressEvent(event)
 
 
 class AddRosterDialog(QDialog):
