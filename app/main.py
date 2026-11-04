@@ -83,7 +83,11 @@ from utils import (
     run_id_now,
     sanitize_filename,
 )
-from widgets import PhotoListView, RosterListView
+from widgets import (
+    HorizontalWheelScrollArea,
+    PhotoListView,
+    RosterListView,
+)
 
 
 APP_DIR = Path(__file__).resolve().parent
@@ -337,7 +341,7 @@ class MainWindow(QMainWindow):
         filter_layout.addWidget(self.sort_class_btn)
         root_layout.addWidget(filter_bar)
 
-        self.class_frames_scroll = QScrollArea()
+        self.class_frames_scroll = HorizontalWheelScrollArea()
         self.class_frames_scroll.setObjectName("classFrames")
         self.class_frames_scroll.setWidgetResizable(True)
         self.class_frames_scroll.setFixedHeight(64)
@@ -1282,6 +1286,7 @@ class MainWindow(QMainWindow):
         all_button.setFixedHeight(44)
         all_button.setMinimumWidth(145)
         all_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        all_button.installEventFilter(self)
         all_button.setProperty("selected", not self._class_filter)
         all_button.clicked.connect(self._show_all_classes_in_current_department)
         self.class_frames_layout.addWidget(all_button)
@@ -1309,6 +1314,7 @@ class MainWindow(QMainWindow):
             button.setFixedHeight(44)
             button.setMinimumWidth(155)
             button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+            button.installEventFilter(self)
             button.setProperty("selected", selected)
             button.setProperty("exported", exported)
             button.setToolTip(
@@ -1831,6 +1837,23 @@ class MainWindow(QMainWindow):
         self._preview_dialog = None
 
     def eventFilter(self, obj, event):  # noqa: N802
+        # 班级框按钮是独立子控件，滚轮事件不会自动冒泡到 QScrollArea，
+        # 这里在按钮上拦截并驱动班级条的横向滚动。
+        if (
+            event.type() == QEvent.Type.Wheel
+            and isinstance(obj, QWidget)
+            and self.class_frames_widget.isAncestorOf(obj)
+        ):
+            pixel = event.pixelDelta()
+            delta = (
+                pixel.y() if not pixel.isNull() else event.angleDelta().y()
+            )
+            if delta:
+                bar = self.class_frames_scroll.horizontalScrollBar()
+                bar.setValue(bar.value() - delta)
+                event.accept()
+                return True
+
         # 非模态预览：点击主程序窗口内、预览窗口外的任意位置时关闭预览。
         if (
             self._preview_dialog is not None

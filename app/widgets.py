@@ -3,7 +3,21 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QPoint, QSize, Qt, Signal
-from PySide6.QtWidgets import QListView
+from PySide6.QtWidgets import QListView, QScrollArea
+
+
+class HorizontalWheelScrollArea(QScrollArea):
+    """横向滚动的班级条：鼠标滚轮上下滚动也能左右移动。"""
+
+    def wheelEvent(self, event):  # noqa: N802
+        pixel = event.pixelDelta()
+        delta = pixel.y() if not pixel.isNull() else event.angleDelta().y()
+        if delta:
+            bar = self.horizontalScrollBar()
+            bar.setValue(bar.value() - delta)
+            event.accept()
+            return
+        super().wheelEvent(event)
 
 
 class PhotoListView(QListView):
