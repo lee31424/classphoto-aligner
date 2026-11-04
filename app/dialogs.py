@@ -5,7 +5,12 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QKeySequence
+from PySide6.QtGui import (
+    QGuiApplication,
+    QImageReader,
+    QKeySequence,
+    QPixmap,
+)
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QCheckBox,
@@ -282,6 +287,57 @@ class ExcelImportDialog(QDialog):
         self.gender_col = int(gender_col) if gender_col is not None else None
         self.has_header = self.header_check.isChecked()
         self.accept()
+
+
+class PhotoPreviewDialog(QDialog):
+    """大图预览；按屏幕可用区域自动缩放。"""
+
+    def __init__(self, path: str | Path, title: str = "", parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(f"预览 - {title or Path(path).name}")
+        self.resize(1000, 760)
+        self.setStyleSheet("QDialog{background:#111111;}")
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(8)
+        label = QLabel()
+        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        label.setStyleSheet("background:#000000; color:#dddddd;")
+        layout.addWidget(label, 1)
+
+        reader = QImageReader(str(path))
+        reader.setAutoTransform(True)
+        image = reader.read()
+        if image.isNull():
+            label.setText(f"无法预览图片：\n{reader.errorString()}")
+        else:
+            screen = QGuiApplication.primaryScreen()
+            if screen is not None:
+                available = screen.availableGeometry()
+                max_width = max(640, int(available.width() * 0.9))
+                max_height = max(480, int(available.height() * 0.9))
+            else:
+                max_width, max_height = 1200, 900
+            if image.width() > max_width or image.height() > max_height:
+                image = image.scaled(
+                    max_width,
+                    max_height,
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
+                )
+            label.setPixmap(QPixmap.fromImage(image))
+            self.resize(
+                min(max_width + 40, image.width() + 40),
+                min(max_height + 90, image.height() + 90),
+            )
+
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Close
+        )
+        buttons.button(QDialogButtonBox.StandardButton.Close).setText("关闭")
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
 
 
 class AddRosterDialog(QDialog):

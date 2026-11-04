@@ -51,6 +51,7 @@ from dialogs import (
     AddRosterDialog,
     ExcelImportDialog,
     ExcludedDialog,
+    PhotoPreviewDialog,
     ShortcutSettingsDialog,
 )
 from excel_io import read_roster
@@ -81,7 +82,7 @@ from utils import (
     run_id_now,
     sanitize_filename,
 )
-from widgets import RosterListView
+from widgets import PhotoListView, RosterListView
 
 
 APP_DIR = Path(__file__).resolve().parent
@@ -385,7 +386,7 @@ class MainWindow(QMainWindow):
         self.photo_group_label.setObjectName("muted")
         left_layout.addWidget(self.photo_group_label)
 
-        self.photo_view = QListView()
+        self.photo_view = PhotoListView()
         self.photo_view.setViewMode(QListView.ViewMode.IconMode)
         self.photo_view.setResizeMode(QListView.ResizeMode.Adjust)
         self.photo_view.setMovement(QListView.Movement.Static)
@@ -424,6 +425,8 @@ class MainWindow(QMainWindow):
         self.photo_view.customContextMenuRequested.connect(
             self._on_photo_context_menu
         )
+        self.photo_view.zoom_requested.connect(self._preview_photo)
+        self.photo_view.delete_requested.connect(self.delete_photo_at)
         left_layout.addWidget(self.photo_view, 1)
 
         self.source_label = QLabel("尚未导入照片")
@@ -558,7 +561,7 @@ class MainWindow(QMainWindow):
             0,
             Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight,
         )
-        info_row.addSpacing(16)
+        info_row.addSpacing(56)
         info_row.addWidget(
             self.current_class_label,
             0,
@@ -1409,6 +1412,8 @@ class MainWindow(QMainWindow):
         ]
         self.photo_model.set_photos(filtered_photos)
         self.roster_model.reset_entries(filtered_roster)
+        if hasattr(self.photo_view, "reset_hover"):
+            self.photo_view.reset_hover()
         self.photo_view.clearSelection()
         self.roster_view.clearSelection()
         self._update_counts()
@@ -1789,6 +1794,16 @@ class MainWindow(QMainWindow):
             self.pair_label.setText("请先导入照片和名单")
 
     # ------------------------------------------------------- context menus
+    def _preview_photo(self, row: int):
+        photo = self.photo_model.photo_at(row)
+        if photo is None:
+            return
+        try:
+            dialog = PhotoPreviewDialog(photo.path, photo.name, self)
+            dialog.exec()
+        except Exception as exc:
+            QMessageBox.critical(self, "预览失败", f"无法打开照片预览：\n{exc}")
+
     def _on_photo_context_menu(self, position: QPoint):
         if self.exporting:
             return

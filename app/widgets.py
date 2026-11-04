@@ -6,6 +6,84 @@ from PySide6.QtCore import QPoint, QSize, Qt, Signal
 from PySide6.QtWidgets import QListView
 
 
+class PhotoListView(QListView):
+    """照片网格：悬停时在卡片上显示放大/删除按钮。"""
+
+    zoom_requested = Signal(int)
+    delete_requested = Signal(int)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._hover_row = -1
+        self.setMouseTracking(True)
+
+    def _button_at(self, position):
+        index = self.indexAt(position)
+        if not index.isValid():
+            return None
+        delegate = self.itemDelegate()
+        if not hasattr(delegate, "overlay_rects"):
+            return None
+        zoom_rect, delete_rect = delegate.overlay_rects(
+            self.visualRect(index)
+        )
+        if delete_rect.contains(position):
+            return "delete", index
+        if zoom_rect.contains(position):
+            return "zoom", index
+        return None
+
+    def _set_hover_row(self, row: int):
+        if row == self._hover_row:
+            return
+        old_row = self._hover_row
+        self._hover_row = row
+        delegate = self.itemDelegate()
+        if hasattr(delegate, "set_hover_row"):
+            delegate.set_hover_row(row)
+        model = self.model()
+        if model is not None:
+            for value in (old_row, row):
+                if value >= 0:
+                    index = model.index(value, 0)
+                    if index.isValid():
+                        self.viewport().update(self.visualRect(index))
+
+    def reset_hover(self):
+        self._set_hover_row(-1)
+        self.unsetCursor()
+
+    def mouseMoveEvent(self, event):  # noqa: N802
+        position = event.position().toPoint()
+        hit = self._button_at(position)
+        index = self.indexAt(position)
+        self._set_hover_row(index.row() if index.isValid() else -1)
+        if hit is not None:
+            self.setCursor(Qt.CursorShape.PointingHandCursor)
+        else:
+            self.unsetCursor()
+        super().mouseMoveEvent(event)
+
+    def leaveEvent(self, event):  # noqa: N802
+        self._set_hover_row(-1)
+        self.unsetCursor()
+        super().leaveEvent(event)
+
+    def mousePressEvent(self, event):  # noqa: N802
+        hit = self._button_at(event.position().toPoint())
+        if hit is not None and event.button() == Qt.MouseButton.LeftButton:
+            action, index = hit
+            self.setCurrentIndex(index)
+            self._set_hover_row(-1)
+            if action == "zoom":
+                self.zoom_requested.emit(index.row())
+            else:
+                self.delete_requested.emit(index.row())
+            event.accept()
+            return
+        super().mousePressEvent(event)
+
+
 class RosterListView(QListView):
     move_requested = Signal(int, int)
     ROW_HEIGHT = 54

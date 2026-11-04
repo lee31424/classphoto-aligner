@@ -18,6 +18,23 @@ class PhotoDelegate(QStyledItemDelegate):
         self.thumbs = thumbs
         self.theme_mode = "light"
         self.dark = False
+        self.hover_row = -1
+
+    def set_hover_row(self, row: int):
+        self.hover_row = row
+
+    @staticmethod
+    def overlay_rects(rect: QRect) -> tuple[QRect, QRect]:
+        outer = rect.adjusted(3, 3, -3, -3)
+        size = 28
+        top = outer.top() + 6
+        delete_rect = QRect(
+            outer.right() - 6 - size, top, size, size
+        )
+        zoom_rect = QRect(
+            delete_rect.left() - 6 - size, top, size, size
+        )
+        return zoom_rect, delete_rect
 
     def sizeHint(self, option, index: QModelIndex) -> QSize:  # noqa: N802
         return self.CELL_SIZE
@@ -45,7 +62,9 @@ class PhotoDelegate(QStyledItemDelegate):
 
         outer = option.rect.adjusted(3, 3, -3, -3)
         selected = bool(option.state & QStyle.StateFlag.State_Selected)
-        hovered = bool(option.state & QStyle.StateFlag.State_MouseOver)
+        hovered = bool(
+            option.state & QStyle.StateFlag.State_MouseOver
+        ) or index.row() == self.hover_row
         if self.theme_mode == "black":
             if selected:
                 background = QColor("#0a2540")
@@ -196,6 +215,37 @@ class PhotoDelegate(QStyledItemDelegate):
             Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft,
             elided,
         )
+
+        if hovered:
+            zoom_rect, delete_rect = self.overlay_rects(option.rect)
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(QColor(25, 31, 39, 165))
+            painter.drawRoundedRect(QRectF(zoom_rect), 7, 7)
+            painter.setBrush(QColor(190, 45, 45, 180))
+            painter.drawRoundedRect(QRectF(delete_rect), 7, 7)
+
+            # 放大镜
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.setPen(QPen(QColor(255, 255, 255, 235), 2))
+            center = zoom_rect.center()
+            painter.drawEllipse(
+                QRectF(center.x() - 7, center.y() - 7, 12, 12)
+            )
+            painter.drawLine(
+                center.x() + 4,
+                center.y() + 4,
+                center.x() + 10,
+                center.y() + 10,
+            )
+
+            # 删除图标
+            c = delete_rect.center()
+            painter.drawLine(c.x() - 7, c.y() - 7, c.x() + 7, c.y() - 7)
+            painter.drawLine(c.x() - 5, c.y() - 4, c.x() - 5, c.y() + 8)
+            painter.drawLine(c.x() + 5, c.y() - 4, c.x() + 5, c.y() + 8)
+            painter.drawLine(c.x() - 5, c.y() + 8, c.x() + 5, c.y() + 8)
+            painter.drawLine(c.x() - 2, c.y() - 4, c.x() - 2, c.y() + 5)
+            painter.drawLine(c.x() + 2, c.y() - 4, c.x() + 2, c.y() + 5)
 
         painter.restore()
 
