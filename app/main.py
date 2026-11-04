@@ -9,6 +9,8 @@ from pathlib import Path
 
 from PySide6.QtCore import (
     QEvent,
+    QItemSelection,
+    QItemSelectionModel,
     QModelIndex,
     QPoint,
     QSettings,
@@ -706,9 +708,7 @@ class MainWindow(QMainWindow):
             self.delete_photo_at(index.row())
 
     def _move_current_to_end(self):
-        index = self.roster_view.currentIndex()
-        if index.isValid():
-            self.move_roster_entry_to_end(index.row())
+        self.move_selected_roster_to_end()
 
     def _toggle_theme(self):
         index = THEME_MODES.index(self._theme_mode)
@@ -1957,7 +1957,7 @@ class MainWindow(QMainWindow):
         elif delete_action is not None and chosen == delete_action:
             self.delete_selected_roster()
         elif end_action is not None and chosen == end_action:
-            self.move_roster_entry_to_end(index.row())
+            self.move_selected_roster_to_end()
 
     def add_roster_student(self):
         if self.exporting:
@@ -2015,6 +2015,65 @@ class MainWindow(QMainWindow):
             f"id={student_no} dept={department} class={class_no}",
         )
         self.status_label.setText(f"已添加学生：{student_no}")
+
+    def move_selected_roster_to_end(self):
+        if self.exporting:
+            return
+        selection = self.roster_view.selectionModel()
+        rows = sorted({index.row() for index in selection.selectedRows()})
+        if not rows:
+            current = self.roster_view.currentIndex()
+            if current.isValid():
+                rows = [current.row()]
+        if not rows:
+            return
+
+        total = self.roster_model.rowCount()
+        count = len(rows)
+        if rows == list(range(total - count, total)):
+            self.status_label.setText("选中项已经在末尾")
+            return
+
+        entries = self.roster_model.entries()
+        selected_set = set(rows)
+        selected_entries = [entries[row] for row in rows]
+        remaining = [
+            entry for row, entry in enumerate(entries) if row not in selected_set
+        ]
+        new_entries = remaining + selected_entries
+
+        self._push_history()
+        self.roster_model.reset_entries(new_entries)
+        if self._filter_active():
+            self._sync_active_order_from_filtered()
+        else:
+            self._active_entries = new_entries
+
+        first_row = total - count
+        last_row = total - 1
+        first_index = self.roster_model.index(first_row, 0)
+        last_index = self.roster_model.index(last_row, 0)
+        self.roster_view.clearSelection()
+        self.roster_view.setCurrentIndex(first_index)
+        self.roster_view.selectionModel().select(
+            QItemSelection(first_index, last_index),
+            QItemSelectionModel.SelectionFlag.ClearAndSelect,
+        )
+        self.roster_view.scrollTo(
+            first_index, QAbstractItemView.ScrollHint.PositionAtCenter
+        )
+        self._update_counts()
+        self._update_pair_label()
+        self._log_action(
+            "move_roster_end",
+            f"count={count} ids="
+            + ",".join(entry.student_no for entry in selected_entries),
+        )
+        self.status_label.setText(
+            f"已移动 {count} 人到末尾，保持选中顺序"
+            if count > 1
+            else "已移到名单末尾"
+        )
 
     def move_roster_entry_to_end(self, row: int):
         if self.exporting:

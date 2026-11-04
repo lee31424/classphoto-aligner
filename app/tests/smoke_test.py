@@ -8,7 +8,13 @@ from datetime import datetime
 from pathlib import Path
 
 from openpyxl import Workbook
-from PySide6.QtCore import QEventLoop, QItemSelectionModel, QSize, QTimer
+from PySide6.QtCore import (
+    QEventLoop,
+    QItemSelection,
+    QItemSelectionModel,
+    QSize,
+    QTimer,
+)
 from PySide6.QtGui import QColor, QImage, QPainter
 from PySide6.QtWidgets import QApplication, QPushButton
 
@@ -462,6 +468,22 @@ def test_ui(photos, entries):
     window.undo()
     assert window.roster_model.rowCount() == 12
     assert not window.excluded
+
+    # 批量选择前 3 位，整体移到末尾并保持原顺序
+    before_batch = [entry.student_no for entry in window.roster_model.entries()]
+    selection = window.roster_view.selectionModel()
+    selection.select(
+        QItemSelection(
+            window.roster_model.index(0, 0),
+            window.roster_model.index(2, 0),
+        ),
+        QItemSelectionModel.SelectionFlag.ClearAndSelect,
+    )
+    window.move_selected_roster_to_end()
+    after_batch = [entry.student_no for entry in window.roster_model.entries()]
+    assert after_batch[-3:] == before_batch[:3]
+    window.undo()
+    assert [entry.student_no for entry in window.roster_model.entries()] == before_batch
 
     window.grab().save(str(TEST_ROOT / "ui_screenshot.png"))
     window.close()
