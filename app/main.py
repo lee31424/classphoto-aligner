@@ -526,6 +526,7 @@ class MainWindow(QMainWindow):
         self.batch_export_btn.clicked.connect(self.export_selected_class)
 
         self.review_btn = QPushButton("需核对")
+        self.review_btn.setObjectName("review")
         self.review_btn.setMinimumWidth(90)
         self.review_btn.setFixedHeight(44)
         self.review_btn.setToolTip(
@@ -557,11 +558,13 @@ class MainWindow(QMainWindow):
             0,
             Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight,
         )
+        info_row.addSpacing(16)
         info_row.addWidget(
             self.current_class_label,
             0,
             Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight,
         )
+        info_row.addSpacing(56)
         info_row.addWidget(
             self.batch_export_btn,
             0,
@@ -844,6 +847,16 @@ class MainWindow(QMainWindow):
             QPushButton#primary:hover { background:@primary_hover@; }
             QPushButton#primary:disabled {
                 background:@primary_disabled@; border-color:@primary_disabled@;
+            }
+            QPushButton#review {
+                background:#c62828; color:#ffffff; border-color:#c62828;
+                font-weight:700;
+            }
+            QPushButton#review:hover {
+                background:#e53935; border-color:#e53935;
+            }
+            QPushButton#review:disabled {
+                background:#6e2b2b; border-color:#6e2b2b; color:#d9b8b8;
             }
             QPushButton#themeToggle { padding:6px 8px; }
             QPushButton#classFrame {
