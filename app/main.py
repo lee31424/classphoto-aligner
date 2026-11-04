@@ -429,6 +429,7 @@ class MainWindow(QMainWindow):
         )
         self.photo_view.zoom_requested.connect(self._preview_photo)
         self.photo_view.delete_requested.connect(self.delete_photo_at)
+        self.photo_view.photo_double_clicked.connect(self._preview_photo)
         left_layout.addWidget(self.photo_view, 1)
 
         self.source_label = QLabel("尚未导入照片")

@@ -11,6 +11,7 @@ class PhotoListView(QListView):
 
     zoom_requested = Signal(int)
     delete_requested = Signal(int)
+    photo_double_clicked = Signal(int)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -82,6 +83,16 @@ class PhotoListView(QListView):
             event.accept()
             return
         super().mousePressEvent(event)
+
+    def mouseDoubleClickEvent(self, event):  # noqa: N802
+        position = event.position().toPoint()
+        if self._button_at(position) is None:
+            index = self.indexAt(position)
+            if index.isValid():
+                self.photo_double_clicked.emit(index.row())
+                event.accept()
+                return
+        super().mouseDoubleClickEvent(event)
 
 
 class RosterListView(QListView):
