@@ -1870,6 +1870,7 @@ class MainWindow(QMainWindow):
         photo = self.photo_model.photo_at(row)
         if photo is None:
             return
+        scroll_value = self.photo_view.verticalScrollBar().value()
 
         self._push_history()
         removed = False
@@ -1887,7 +1888,14 @@ class MainWindow(QMainWindow):
         resolve_departments_from_roster(self._all_photos, self._active_entries)
         self._refresh_filter_options()
         self._apply_filters()
-        self.photo_view.scrollToTop()
+        # 模型 reset 后 Qt 往往回到顶部；恢复删除前的垂直滚动位置。
+        self.photo_view.verticalScrollBar().setValue(scroll_value)
+        QTimer.singleShot(
+            0,
+            lambda value=scroll_value: self.photo_view.verticalScrollBar().setValue(
+                value
+            ),
+        )
         self._log_action(
             "delete_photo",
             f"name={photo.name} path={photo.path} class={photo.class_no}",
