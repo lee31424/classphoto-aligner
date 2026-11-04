@@ -1939,23 +1939,30 @@ class MainWindow(QMainWindow):
         menu = QMenu(self)
         add_action = menu.addAction("添加学生")
         delete_action = None
+        start_action = None
         end_action = None
         if index.isValid():
             menu.addSeparator()
             delete_action = menu.addAction("删除未到场")
             menu.addSeparator()
             if self._class_filter:
+                start_text = "移到本班开头"
                 end_text = "移到本班末尾"
             elif self._filter_active():
+                start_text = "移到筛选结果开头"
                 end_text = "移到筛选结果末尾"
             else:
+                start_text = "移到名单开头"
                 end_text = "移到名单末尾"
+            start_action = menu.addAction(start_text)
             end_action = menu.addAction(end_text)
         chosen = menu.exec(self.roster_view.viewport().mapToGlobal(position))
         if chosen == add_action:
             self.add_roster_student()
         elif delete_action is not None and chosen == delete_action:
             self.delete_selected_roster()
+        elif start_action is not None and chosen == start_action:
+            self.move_selected_roster_to_top()
         elif end_action is not None and chosen == end_action:
             self.move_selected_roster_to_end()
 
@@ -2015,6 +2022,62 @@ class MainWindow(QMainWindow):
             f"id={student_no} dept={department} class={class_no}",
         )
         self.status_label.setText(f"已添加学生：{student_no}")
+
+    def move_selected_roster_to_top(self):
+        if self.exporting:
+            return
+        selection = self.roster_view.selectionModel()
+        rows = sorted({index.row() for index in selection.selectedRows()})
+        if not rows:
+            current = self.roster_view.currentIndex()
+            if current.isValid():
+                rows = [current.row()]
+        if not rows:
+            return
+
+        count = len(rows)
+        if rows == list(range(count)):
+            self.status_label.setText("选中项已经在开头")
+            return
+
+        entries = self.roster_model.entries()
+        selected_set = set(rows)
+        selected_entries = [entries[row] for row in rows]
+        remaining = [
+            entry for row, entry in enumerate(entries) if row not in selected_set
+        ]
+        new_entries = selected_entries + remaining
+
+        self._push_history()
+        self.roster_model.reset_entries(new_entries)
+        if self._filter_active():
+            self._sync_active_order_from_filtered()
+        else:
+            self._active_entries = new_entries
+
+        first_index = self.roster_model.index(0, 0)
+        last_index = self.roster_model.index(count - 1, 0)
+        self.roster_view.clearSelection()
+        self.roster_view.setCurrentIndex(first_index)
+        self.roster_view.selectionModel().select(
+            QItemSelection(first_index, last_index),
+            QItemSelectionModel.SelectionFlag.ClearAndSelect,
+        )
+        self.roster_view.scrollTo(
+            first_index, QAbstractItemView.ScrollHint.PositionAtCenter
+        )
+        self._update_counts()
+        self._update_pair_label()
+        self._log_action(
+            "move_roster_start",
+            f"count={count} ids="
+            + ",".join(entry.student_no for entry in selected_entries),
+        )
+        self.status_label.setText(
+            f"已移动 {count} 人到开头，保持选中顺序"
+            if count > 1
+            else "已移到名单开头"
+        )
 
     def move_selected_roster_to_end(self):
         if self.exporting:

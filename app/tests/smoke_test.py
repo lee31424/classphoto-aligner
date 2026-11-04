@@ -485,6 +485,19 @@ def test_ui(photos, entries):
     window.undo()
     assert [entry.student_no for entry in window.roster_model.entries()] == before_batch
 
+    selection.select(
+        QItemSelection(
+            window.roster_model.index(7, 0),
+            window.roster_model.index(9, 0),
+        ),
+        QItemSelectionModel.SelectionFlag.ClearAndSelect,
+    )
+    window.move_selected_roster_to_top()
+    after_top = [entry.student_no for entry in window.roster_model.entries()]
+    assert after_top[:3] == before_batch[7:10]
+    window.undo()
+    assert [entry.student_no for entry in window.roster_model.entries()] == before_batch
+
     window.grab().save(str(TEST_ROOT / "ui_screenshot.png"))
     window.close()
     print("TEST UI OK")
