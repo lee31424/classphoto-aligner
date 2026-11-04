@@ -525,6 +525,16 @@ class MainWindow(QMainWindow):
         )
         self.batch_export_btn.clicked.connect(self.export_selected_class)
 
+        self.review_btn = QPushButton("需核对")
+        self.review_btn.setMinimumWidth(90)
+        self.review_btn.setFixedHeight(44)
+        self.review_btn.setToolTip(
+            "按正常流程导出，但班级文件夹名后追加“ 需核对”"
+        )
+        self.review_btn.clicked.connect(
+            lambda _checked=False: self.export_selected_class(needs_review=True)
+        )
+
         self.current_class_label = QLabel("")
         self.current_class_label.setObjectName("currentClass")
         self.current_class_label.setAlignment(
@@ -542,6 +552,11 @@ class MainWindow(QMainWindow):
         left_info.setSpacing(2)
         left_info.addWidget(self.status_label)
         info_row.addLayout(left_info, 1)
+        info_row.addWidget(
+            self.review_btn,
+            0,
+            Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight,
+        )
         info_row.addWidget(
             self.current_class_label,
             0,
@@ -1036,9 +1051,9 @@ class MainWindow(QMainWindow):
         self.import_photos_btn.setEnabled(not self.exporting)
         self.import_roster_btn.setEnabled(not self.exporting)
         self.clear_btn.setEnabled(not self.exporting)
-        self.batch_export_btn.setEnabled(
-            bool(self._class_filter) and can_export
-        )
+        can_batch = bool(self._class_filter) and can_export
+        self.batch_export_btn.setEnabled(can_batch)
+        self.review_btn.setEnabled(can_batch)
         self.export_path_edit.setEnabled(not self.exporting)
         self.export_path_btn.setEnabled(not self.exporting)
 
@@ -2223,16 +2238,22 @@ class MainWindow(QMainWindow):
         class_no = self._class_filter or "未填班级"
         return department, major, class_no
 
-    def _selected_class_output_dir(self, base_dir: Path) -> Path:
+    def _selected_class_output_dir(
+        self, base_dir: Path, needs_review: bool = False
+    ) -> Path:
         department, _major, class_no = self._selected_class_identity()
+        folder_name = class_no + (" 需核对" if needs_review else "")
         return (
             base_dir
             / sanitize_filename(department)
-            / sanitize_filename(class_no)
+            / sanitize_filename(folder_name)
         )
 
-    def export_selected_class(self):
-        """修改完当前班级后，按 导出路径/学院/班级 立即导出。"""
+    def export_selected_class(self, needs_review: bool = False):
+        """修改完当前班级后，按 导出路径/学院/班级 立即导出。
+
+        needs_review=True 时仍执行完整导出流程，只把班级文件夹名追加“ 需核对”。
+        """
         if self.exporting:
             return
         if not self._class_filter:
@@ -2280,7 +2301,9 @@ class MainWindow(QMainWindow):
         self._save_batch_export_dir()
 
         department, _major, class_no = self._selected_class_identity()
-        target_dir = self._selected_class_output_dir(base_dir)
+        target_dir = self._selected_class_output_dir(
+            base_dir, needs_review=needs_review
+        )
 
         photos = self.photo_model.photos()
         roster = self.roster_model.entries()
@@ -2300,8 +2323,9 @@ class MainWindow(QMainWindow):
 
         self._batch_export_mode = True
         self._pending_batch_key = self._export_mark_key(department, class_no)
+        suffix = "（需核对）" if needs_review else ""
         self.status_label.setText(
-            f"正在导出 {department} / {class_no}…"
+            f"正在导出 {department} / {class_no}{suffix}…"
         )
         self._start_export(preflight.items, target_dir)
 
