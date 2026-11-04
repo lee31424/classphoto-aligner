@@ -8,6 +8,7 @@ from datetime import datetime
 from pathlib import Path
 
 from PySide6.QtCore import (
+    QEvent,
     QModelIndex,
     QPoint,
     QSettings,
@@ -196,6 +197,7 @@ class MainWindow(QMainWindow):
         self.exporting = False
         self._batch_export_mode = False
         self._advance_after_export = False
+        self._preview_dialog: PhotoPreviewDialog | None = None
         self.worker: ExportWorker | None = None
         self.thumbs: ThumbnailManager | None = None
         self.photo_model = PhotoModel([], self)
@@ -1798,11 +1800,51 @@ class MainWindow(QMainWindow):
         photo = self.photo_model.photo_at(row)
         if photo is None:
             return
+        if self._preview_dialog is not None:
+            self._preview_dialog.close()
         try:
             dialog = PhotoPreviewDialog(photo.path, photo.name, self)
-            dialog.exec()
+            dialog.setModal(False)
+            dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+            dialog.destroyed.connect(
+                lambda _obj=None, value=dialog: self._on_preview_destroyed(
+                    value
+                )
+            )
+            self._preview_dialog = dialog
+            app = QApplication.instance()
+            if app is not None:
+                app.installEventFilter(self)
+            dialog.show()
+            dialog.raise_()
+            dialog.activateWindow()
         except Exception as exc:
             QMessageBox.critical(self, "预览失败", f"无法打开照片预览：\n{exc}")
+
+    def _on_preview_destroyed(self, dialog):
+        if self._preview_dialog is not dialog:
+            return
+        app = QApplication.instance()
+        if app is not None:
+            app.removeEventFilter(self)
+        self._preview_dialog = None
+
+    def eventFilter(self, obj, event):  # noqa: N802
+        # 非模态预览：点击主程序窗口内、预览窗口外的任意位置时关闭预览。
+        if (
+            self._preview_dialog is not None
+            and event.type() == QEvent.Type.MouseButtonPress
+        ):
+            target = obj if isinstance(obj, QWidget) else None
+            if target is not None and (
+                target is self._preview_dialog
+                or self._preview_dialog.isAncestorOf(target)
+            ):
+                pass
+            else:
+                self._preview_dialog.close()
+                return True
+        return super().eventFilter(obj, event)
 
     def _on_photo_context_menu(self, position: QPoint):
         if self.exporting:

@@ -362,14 +362,6 @@ class PhotoPreviewDialog(QDialog):
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
 
-    def mousePressEvent(self, event):  # noqa: N802
-        # 点击对话框四周的空白边距也关闭。
-        if event.button() == Qt.MouseButton.LeftButton:
-            self.reject()
-            event.accept()
-            return
-        super().mousePressEvent(event)
-
 
 class AddRosterDialog(QDialog):
     """手动添加一条名单；学号必填，姓名和性别可空。"""
