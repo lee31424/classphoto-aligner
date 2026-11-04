@@ -240,6 +240,10 @@ def test_class_columns_and_filter():
     assert window._selected_class_output_dir(
         Path("H:/batch_out"), needs_review=True
     ).as_posix() == "H:/batch_out/信息学院/2班 需核对"
+    assert window._selected_class_output_dir(
+        Path("H:/batch_out"), suffix_text="有闭眼"
+    ).as_posix() == "H:/batch_out/信息学院/2班 有闭眼"
+    assert window.eye_btn.isEnabled()
     assert window.roster_view.dragEnabled()
 
     # 班级筛选下拖动，只改本班在完整名单里的相对顺序

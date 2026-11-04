@@ -537,6 +537,19 @@ class MainWindow(QMainWindow):
         )
         self.batch_export_btn.clicked.connect(self.export_selected_class)
 
+        self.eye_btn = QPushButton("有闭眼")
+        self.eye_btn.setObjectName("closedEye")
+        self.eye_btn.setMinimumWidth(90)
+        self.eye_btn.setFixedHeight(44)
+        self.eye_btn.setToolTip(
+            "按正常流程导出，但班级文件夹名后追加“ 有闭眼”"
+        )
+        self.eye_btn.clicked.connect(
+            lambda _checked=False: self.export_selected_class(
+                suffix_text="有闭眼"
+            )
+        )
+
         self.review_btn = QPushButton("需核对")
         self.review_btn.setObjectName("review")
         self.review_btn.setMinimumWidth(90)
@@ -565,6 +578,12 @@ class MainWindow(QMainWindow):
         left_info.setSpacing(2)
         left_info.addWidget(self.status_label)
         info_row.addLayout(left_info, 1)
+        info_row.addWidget(
+            self.eye_btn,
+            0,
+            Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight,
+        )
+        info_row.addSpacing(16)
         info_row.addWidget(
             self.review_btn,
             0,
@@ -868,6 +887,16 @@ class MainWindow(QMainWindow):
             QPushButton#review:disabled {
                 background:#6e2b2b; border-color:#6e2b2b; color:#d9b8b8;
             }
+            QPushButton#closedEye {
+                background:#d97706; color:#ffffff; border-color:#d97706;
+                font-weight:700;
+            }
+            QPushButton#closedEye:hover {
+                background:#f59e0b; border-color:#f59e0b;
+            }
+            QPushButton#closedEye:disabled {
+                background:#6b4a1f; border-color:#6b4a1f; color:#ddc7a8;
+            }
             QPushButton#themeToggle { padding:6px 8px; }
             QPushButton#classFrame {
                 background:@panel@; border:1px solid @border@; border-radius:8px;
@@ -1077,6 +1106,7 @@ class MainWindow(QMainWindow):
         can_batch = bool(self._class_filter) and can_export
         self.batch_export_btn.setEnabled(can_batch)
         self.review_btn.setEnabled(can_batch)
+        self.eye_btn.setEnabled(can_batch)
         self.export_path_edit.setEnabled(not self.exporting)
         self.export_path_btn.setEnabled(not self.exporting)
 
@@ -2463,20 +2493,29 @@ class MainWindow(QMainWindow):
         return department, major, class_no
 
     def _selected_class_output_dir(
-        self, base_dir: Path, needs_review: bool = False
+        self,
+        base_dir: Path,
+        needs_review: bool = False,
+        suffix_text: str = "",
     ) -> Path:
         department, _major, class_no = self._selected_class_identity()
-        folder_name = class_no + (" 需核对" if needs_review else "")
+        suffix = " 需核对" if needs_review else ""
+        if suffix_text:
+            suffix = " " + suffix_text
+        folder_name = class_no + suffix
         return (
             base_dir
             / sanitize_filename(department)
             / sanitize_filename(folder_name)
         )
 
-    def export_selected_class(self, needs_review: bool = False):
+    def export_selected_class(
+        self, needs_review: bool = False, suffix_text: str = ""
+    ):
         """修改完当前班级后，按 导出路径/学院/班级 立即导出。
 
-        needs_review=True 时仍执行完整导出流程，只把班级文件夹名追加“ 需核对”。
+        needs_review=True 时追加“ 需核对”；suffix_text 可指定其他后缀，
+        例如“有闭眼”。两者都执行完整导出流程。
         """
         if self.exporting:
             return
@@ -2526,7 +2565,9 @@ class MainWindow(QMainWindow):
 
         department, _major, class_no = self._selected_class_identity()
         target_dir = self._selected_class_output_dir(
-            base_dir, needs_review=needs_review
+            base_dir,
+            needs_review=needs_review,
+            suffix_text=suffix_text,
         )
 
         photos = self.photo_model.photos()
@@ -2547,9 +2588,13 @@ class MainWindow(QMainWindow):
 
         self._batch_export_mode = True
         self._pending_batch_key = self._export_mark_key(department, class_no)
-        suffix = "（需核对）" if needs_review else ""
+        status_suffix = ""
+        if needs_review:
+            status_suffix = "（需核对）"
+        elif suffix_text:
+            status_suffix = f"（{suffix_text}）"
         self.status_label.setText(
-            f"正在导出 {department} / {class_no}{suffix}…"
+            f"正在导出 {department} / {class_no}{status_suffix}…"
         )
         self._start_export(preflight.items, target_dir)
 
