@@ -23,6 +23,7 @@ from PySide6.QtGui import (
     QColor,
     QDesktopServices,
     QFont,
+    QIcon,
     QKeySequence,
     QPalette,
     QShortcut,
@@ -98,6 +99,24 @@ CACHE_DIR = APP_ROOT / "cache"
 LOG_DIR = APP_ROOT / "logs"
 OUTPUT_ROOT = APP_ROOT / "output"
 APP_VERSION = "1.0.0"
+
+
+def application_icon() -> QIcon:
+    """在源码运行和后续打包运行时都能找到 app.ico。"""
+    candidates: list[Path] = []
+    if getattr(sys, "frozen", False):
+        candidates.append(Path(sys.executable).resolve().parent / "app.ico")
+        bundle_dir = getattr(sys, "_MEIPASS", None)
+        if bundle_dir:
+            candidates.append(Path(bundle_dir) / "app.ico")
+    candidates.append(APP_DIR / "app.ico")
+    for path in candidates:
+        if path.is_file():
+            icon = QIcon(str(path))
+            if not icon.isNull():
+                return icon
+    return QIcon()
+
 
 SHORTCUT_DEFAULTS = {
     "photo_delete": "Delete",
@@ -219,6 +238,7 @@ class MainWindow(QMainWindow):
         OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
 
         self.setWindowTitle(f"照片名单对齐工具 v{APP_VERSION}")
+        self.setWindowIcon(application_icon())
         self.resize(1500, 920)
         self._build_ui()
         self._restore_window_state()
@@ -2968,6 +2988,9 @@ def main():
     QApplication.setOrganizationName("PhotoRosterTool")
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
+    icon = application_icon()
+    if not icon.isNull():
+        app.setWindowIcon(icon)
     font = QFont("Microsoft YaHei UI")
     font.setPointSize(9)
     app.setFont(font)
