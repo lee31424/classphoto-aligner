@@ -18,6 +18,7 @@ output/
 testdata/
 testdata_*/
 temp/
+settings.ini
 *.log
 
 # Windows

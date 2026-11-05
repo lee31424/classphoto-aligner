@@ -94,7 +94,13 @@ from widgets import (
 
 
 APP_DIR = Path(__file__).resolve().parent
-APP_ROOT = APP_DIR.parent
+if getattr(sys, "frozen", False):
+    # PyInstaller 绿色版：exe 同级目录作为数据根目录。
+    APP_ROOT = Path(sys.executable).resolve().parent
+    RESOURCE_DIR = Path(getattr(sys, "_MEIPASS", APP_ROOT))
+else:
+    APP_ROOT = APP_DIR.parent
+    RESOURCE_DIR = APP_DIR
 CACHE_DIR = APP_ROOT / "cache"
 LOG_DIR = APP_ROOT / "logs"
 OUTPUT_ROOT = APP_ROOT / "output"
@@ -103,13 +109,11 @@ APP_VERSION = "1.0.0"
 
 def application_icon() -> QIcon:
     """在源码运行和后续打包运行时都能找到 app.ico。"""
-    candidates: list[Path] = []
-    if getattr(sys, "frozen", False):
-        candidates.append(Path(sys.executable).resolve().parent / "app.ico")
-        bundle_dir = getattr(sys, "_MEIPASS", None)
-        if bundle_dir:
-            candidates.append(Path(bundle_dir) / "app.ico")
-    candidates.append(APP_DIR / "app.ico")
+    candidates = [
+        APP_ROOT / "app.ico",
+        RESOURCE_DIR / "app.ico",
+        APP_DIR / "app.ico",
+    ]
     for path in candidates:
         if path.is_file():
             icon = QIcon(str(path))
@@ -155,7 +159,11 @@ THEME_LABELS = {"light": "浅色", "dark": "深色", "black": "纯黑"}
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.settings = QSettings("PhotoRosterTool", "PhotoRosterTool")
+        # 便携设置：settings.ini 跟随程序目录，换电脑复制即可带走。
+        self.settings = QSettings(
+            str(APP_ROOT / "settings.ini"),
+            QSettings.Format.IniFormat,
+        )
         saved_theme = str(self.settings.value("theme_mode", "") or "")
         if saved_theme not in THEME_MODES:
             saved_theme = (

@@ -65,6 +65,16 @@ python -m pip install -r requirements.txt
 
 `run.bat` 会优先使用 `.venv\Scripts\pythonw.exe`，其次使用 `pyw -3` / `pythonw`。
 
+## 绿色版 / 便携版
+
+源码已支持 PyInstaller `onedir` 便携运行：
+
+- 打包后的 `ClassPhotoAligner.exe` 不需要目标电脑安装 Python；
+- `cache\`、`logs\`、`output\`、`settings.ini` 都在 exe 同级目录；
+- 换电脑复制整个文件夹即可；
+- 必须解压到可写目录，不要放 `C:\Program Files`；
+- 窗口/任务栏图标使用 `app\app.ico`。
+
 ## 使用环境
 
 - 操作系统：Windows 10 / Windows 11，64 位

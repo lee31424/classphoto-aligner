@@ -20,6 +20,12 @@ def _show_error(message: str):
         pass
 
 
+def _app_root() -> Path:
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
+    return Path(__file__).resolve().parent.parent
+
+
 def main():
     try:
         from main import main as app_main
@@ -29,7 +35,7 @@ def main():
         raise
     except Exception:
         text = traceback.format_exc()
-        log_path = Path(__file__).resolve().parent.parent / "logs" / "startup_error.log"
+        log_path = _app_root() / "logs" / "startup_error.log"
         try:
             log_path.parent.mkdir(parents=True, exist_ok=True)
             log_path.write_text(text, encoding="utf-8")
