@@ -10,6 +10,14 @@
 
 本工具不进行人脸识别，也不对照片做智能匹配，完全按照片队列位置与名单顺序对应。适合按班级分批处理大量学生证件照。
 
+## 下载绿色版
+
+[ClassPhoto Aligner v1.0.0 绿色版](https://github.com/lee31424/classphoto-aligner/releases/tag/v1.0.0)
+
+- 不需要安装 Python；
+- 解压后双击 `ClassPhotoAligner.exe`；
+- 包含 `LICENSE` 和源码。
+
 ## 功能
 
 - 照片按文件名自然排序，导入后顺序固定，界面不允许拖动照片。
